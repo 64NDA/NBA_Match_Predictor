@@ -1,0 +1,8 @@
+This is a small project to try and predict nba scorelines and match outcomes using ai machine learning algorithms (random forest algorithm).
+INitially, devloped webscraper to collect all the data, this includes results and advanced statistics for entire nba 2024 season,
+Then using pandas, scikit learn, formatted data:
+then in order to use statistics, trailed various methods to implement a way to look at past statistics, collate them and use those statistics to predict matches
+used various methods settled on exponential decay (opposed to mean of last...) in future could implement exponential decay of last 20...
+using this, plugged data into model, tuned model to achieve a score prediction of root (mse), ie error margin of around 14 points.
+60% accuracy on results, this is hard. most Models end up learning towards teams potenitally winning then losing.
+  
