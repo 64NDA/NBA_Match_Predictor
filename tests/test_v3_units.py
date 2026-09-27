@@ -132,3 +132,15 @@ def test_absences_do_not_carry_over_seasons():
     assert np.isnan(opener["missed_streak"]) and np.isnan(opener["share_last10"]) and opener["season_games"] == 0
     h.update(1, box([10]), pd.Timestamp("2024-10-22"), 2024)         # misses the opener too
     assert h.features(1, 11, pd.Timestamp("2024-10-24"), 2024)["missed_streak"] == 1
+
+
+def test_full_strength_restores_only_players_with_an_injury_signal():
+    from nbapred.features.projection import full_strength_p, injury_signal
+    c = pd.DataFrame({"status": ["Out", "none", "none", "Questionable"], "missed_streak": [3, 0, 2, np.nan]})
+    signal = injury_signal(c)
+    assert list(signal) == [True, False, True, True]         # listed, healthy, missed games, listed
+    p_play = np.array([0.02, 0.60, 0.30, 0.50])               # the healthy player at 60% is a coach's-decision case
+    p_healthy = np.array([0.97, 0.95, 0.96, 0.97])
+    full = full_strength_p(p_play, p_healthy, signal)
+    assert full[1] == 0.60                                     # untouched: not an injury
+    assert list(full[[0, 2, 3]]) == [0.97, 0.96, 0.97]

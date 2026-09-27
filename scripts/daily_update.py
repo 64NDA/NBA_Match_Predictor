@@ -90,6 +90,10 @@ live.export_v3(state, model, cfg, season, status, roster_ids)
 live.export_backtest(matrix_v2)
 live.export_elo_history(matrix_v2)
 live.team_names().to_parquet(APP_DATA / "teams.parquet", index=False)
+live.team_summary(games, state, season).to_parquet(APP_DATA / "team_summary.parquet", index=False)
+# every result since 2015-16, for the explorer's head-to-head history
+games[["game_id", "date", "season", "is_playoff", "home_team", "away_team", "home_pts", "away_pts"]].to_parquet(
+    APP_DATA / "results.parquet", index=False)
 
 print(f"6/6 done: {len(upcoming)} upcoming games predicted, {log['home_win'].notna().sum() if len(log) else 0} logged results")
 if len(upcoming):

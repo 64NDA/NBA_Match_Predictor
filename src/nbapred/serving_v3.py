@@ -12,8 +12,9 @@ from nbapred.features import matrix_v3 as MX
 from nbapred.features.availability import History, candidate_rows, candidate_table
 from nbapred.features.elo import MEAN, Elo
 from nbapred.features.form import latest_form
-from nbapred.features.projection import expected_minutes, team_projection, usual_minutes
-from nbapred.models.availability import predict_full
+from nbapred.features.projection import (expected_minutes, full_strength_p, injury_signal, playoff_multiplier,
+                                         team_projection, usual_minutes)
+from nbapred.models.availability import predict_healthy
 from nbapred.features.schedule import ARENAS, REST_CAP, _haversine_km
 from nbapred.features.style import latest_style
 
@@ -93,7 +94,7 @@ class TeamState:
         c = cands.assign(is_playoff=is_playoff)
         p_live = self.availability_model.predict(c)
         p_blind = self.availability_model.predict(c, blind=True)
-        c = c.assign(p_full=predict_full(self.availability_model, c))
+        c = c.assign(p_healthy=predict_healthy(self.availability_model, c))
         if overrides:
             ov = c["player_id"].map(overrides)
             p_live = np.where(ov.notna(), ov, p_live)
@@ -134,6 +135,49 @@ class TeamState:
                "series_resid": s_res, "h2h_resid": h_res}
         return pd.DataFrame([{"home_id": home_id, "away_id": away_id, "date": date, "season": season,
                               "neutral": neutral, **MX.assemble(sides[home_id], sides[away_id], ctx)}])
+
+    def lineup(self, team: int, date, season: int, status: dict | None, roster: list | None = None,
+               is_playoff: int = 0) -> pd.DataFrame:
+        """Per-player breakdown behind a team's projection (same maths as team_projection), for display:
+        chance of playing, expected minutes tonight and at full strength, impact ratings, and value in points.
+        Team strength tonight = sum(value_tonight); at full strength = sum(value_full)."""
+        c = self.candidates(team, date, season, status, roster).assign(is_playoff=is_playoff)
+        if c.empty:
+            return c
+        usual = usual_minutes(c, self.rookie_min)
+        p = self.availability_model.predict(c)
+        p_full = full_strength_p(p, predict_healthy(self.availability_model, c), injury_signal(c))
+        rank = (-usual).argsort().argsort() + 1
+        mult = playoff_multiplier(rank, self.playoff_curve) if is_playoff else None
+        r = self.ratings.reindex(c["player_id"])
+        out = pd.DataFrame({
+            "player_id": c["player_id"].to_numpy(), "player": c["player_id"].map(self.names).fillna("(new player)").to_numpy(),
+            "status": c["status"].to_numpy(), "p_play": p, "p_full": p_full, "usual_min": usual,
+            "min_tonight": expected_minutes(p, usual, mult), "min_full": expected_minutes(p_full, usual, mult),
+            "O": r["O"].fillna(self.rookie[0]).to_numpy(), "D": r["D"].fillna(self.rookie[1]).to_numpy(),
+            "rated": r["O"].notna().to_numpy(), "missed_streak": c["missed_streak"].to_numpy(),
+            "playoff_mult": mult if mult is not None else np.ones(len(c))})
+        out["net"] = out["O"] + out["D"]
+        out["value_tonight"] = out["net"] * out["min_tonight"] / 48
+        out["value_full"] = out["net"] * out["min_full"] / 48
+        return out.sort_values("min_full", ascending=False).reset_index(drop=True)
+
+    def absence_effects(self, lineup: pd.DataFrame) -> pd.DataFrame:
+        """Each possibly-injured player's share of the team's absence effect (points per 100 possessions), after his
+        minutes go to teammates. Players are restored to their full-strength chance of playing one at a time, most
+        important (most usual minutes) first, and each gets the change at his step, so the effects add up exactly
+        to the team's total (tonight minus full strength)."""
+        usual, mult = lineup["usual_min"].to_numpy(), lineup["playoff_mult"].to_numpy()
+        p, p_full = lineup["p_play"].to_numpy(), lineup["p_full"].to_numpy()
+        net = lineup["net"].to_numpy()
+        strength = lambda q: float(net @ expected_minutes(q, usual, mult) / 48)
+        q, rows = p.copy(), []
+        for i in sorted(np.where(p_full > p)[0], key=lambda i: -usual[i]):
+            before = strength(q)
+            q[i] = p_full[i]
+            rows.append({"player": lineup["player"].iloc[i], "status": lineup["status"].iloc[i], "p_play": p[i],
+                         "effect": before - strength(q)})
+        return pd.DataFrame(rows, columns=["player", "status", "p_play", "effect"])
 
     def add_scheduled(self, team: int, date: pd.Timestamp, host: str) -> None:
         self.schedule.setdefault(team, []).append((pd.Timestamp(date), host))

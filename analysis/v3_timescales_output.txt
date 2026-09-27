@@ -1,0 +1,33 @@
+== Player-rating memory and shrinkage ==
+  done 182 1000
+  done 182 3000
+  done 182 10000
+  done 365 1000
+  done 365 10000
+  done 730 1000
+  done 730 3000
+  done 730 10000
+                                                                                games     acc  log_loss  margin_mae  d_logloss      se  d_acc_pp     verdict
+current (RAPM half-life 1 season, lambda 3000, box 1 season, minutes 8 games)  5281.0  0.6705    0.6060     10.6087     0.0000  0.0000    0.0000  (baseline)
+RAPM half-life 182d, lambda 1000                                               5281.0  0.6682    0.6074     10.6254     0.0014  0.0007   -0.2272       ~same
+RAPM half-life 182d, lambda 3000                                               5281.0  0.6667    0.6060     10.6117    -0.0001  0.0004   -0.3787       ~same
+RAPM half-life 182d, lambda 10000                                              5281.0  0.6667    0.6074     10.6369     0.0013  0.0008   -0.3787       ~same
+RAPM half-life 365d, lambda 1000                                               5281.0  0.6690    0.6072     10.6187     0.0011  0.0005   -0.1515       worse
+RAPM half-life 365d, lambda 10000                                              5281.0  0.6694    0.6071     10.6324     0.0011  0.0007   -0.1136       ~same
+RAPM half-life 730d, lambda 1000                                               5281.0  0.6688    0.6062     10.6120     0.0001  0.0007   -0.1704       ~same
+RAPM half-life 730d, lambda 3000                                               5281.0  0.6688    0.6056     10.6067    -0.0004  0.0005   -0.1704       ~same
+RAPM half-life 730d, lambda 10000                                              5281.0  0.6679    0.6067     10.6273     0.0007  0.0007   -0.2651       ~same
+
+== Box-score prior memory ==
+                                                                                games     acc  log_loss  margin_mae  d_logloss      se  d_acc_pp     verdict
+current (RAPM half-life 1 season, lambda 3000, box 1 season, minutes 8 games)  5281.0  0.6705    0.6060     10.6087     0.0000  0.0000    0.0000  (baseline)
+box-rate half-life 182d                                                        5281.0  0.6724    0.6059     10.6058    -0.0001  0.0002    0.1894       ~same
+box-rate half-life 730d                                                        5281.0  0.6703    0.6062     10.6125     0.0002  0.0001   -0.0189       ~same
+
+== Usual-minutes memory ==
+                                                                                games     acc  log_loss  margin_mae  d_logloss      se  d_acc_pp     verdict
+current (RAPM half-life 1 season, lambda 3000, box 1 season, minutes 8 games)  5281.0  0.6705    0.6060     10.6087     0.0000  0.0000    0.0000  (baseline)
+minutes half-life 4 games                                                      5281.0  0.6677    0.6060     10.6010    -0.0000  0.0004   -0.2840       ~same
+minutes half-life 16 games                                                     5281.0  0.6703    0.6065     10.6221     0.0005  0.0004   -0.0189       ~same
+minutes: current season only (8 games)                                         5281.0  0.6698    0.6056     10.5986    -0.0004  0.0004   -0.0757       ~same
+exit 0

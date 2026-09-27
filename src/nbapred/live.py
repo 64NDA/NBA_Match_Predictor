@@ -107,27 +107,52 @@ def export_elo_history(matrix: pd.DataFrame) -> None:
 
 def injury_detail(state, team: int, date, season: int, status: dict | None, roster: list | None,
                   is_playoff: int = 0) -> list[dict]:
-    """Rotation players who might miss tonight: status, P(plays), and points of team strength at stake.
-    'Points at stake' = (O + D) x (full-strength minutes - expected minutes) / 48, from the projection maths.
-    Only players on the injury report, or regulars (15+ usual minutes) with a real chance of sitting, are listed."""
-    from nbapred.features.projection import expected_minutes, usual_minutes
-    from nbapred.models.availability import predict_full
-    c = state.candidates(team, pd.Timestamp(date), season, status, roster).assign(is_playoff=is_playoff)
-    if c.empty:
+    """Players with an injury signal (on the injury report, or missed the team's recent games this season) who have a
+    real role (8+ usual minutes). For each: status, chance of playing, and `effect`: the change in team strength
+    (points per 100 possessions, about points per game) from his likely absence, after his minutes go to teammates.
+    Everyone not listed is expected to play his normal minutes."""
+    lu = state.lineup(team, pd.Timestamp(date), season, status, roster, is_playoff)
+    if lu.empty:
         return []
-    p, p_full = state.availability_model.predict(c), predict_full(state.availability_model, c)
-    usual = usual_minutes(c, state.rookie_min)
-    e_full, e_exp = expected_minutes(p_full, usual), expected_minutes(p, usual)
-    r = state.ratings.reindex(c["player_id"])
-    value = (r["O"].fillna(state.rookie[0]) + r["D"].fillna(state.rookie[1])).to_numpy()
+    effects = state.absence_effects(lu).set_index("player")["effect"]
+    signal = lu["status"].isin(["Out", "Doubtful", "Questionable", "Probable"]) | (lu["missed_streak"].fillna(0) >= 1)
     out = []
-    for i, pid in enumerate(c["player_id"]):
-        listed = c["status"].iloc[i] in ("Out", "Doubtful", "Questionable", "Probable")
-        if (listed and usual[i] >= 8) or (p[i] < 0.8 and c["min_ewm"].iloc[i] >= 15):
-            out.append({"player_id": int(pid), "player": state.names.get(pid, str(pid)), "status": c["status"].iloc[i],
-                        "p_play": float(p[i]), "usual_min": float(usual[i]),
-                        "pts_at_stake": float(value[i] * (e_full[i] - e_exp[i]) / 48)})
-    return sorted(out, key=lambda d: d["p_play"])
+    for r in lu[signal & (lu["usual_min"] >= 8)].itertuples():
+        out.append({"player_id": int(r.player_id), "player": r.player,
+                    "status": r.status if r.status in ("Out", "Doubtful", "Questionable", "Probable") else "not listed",
+                    "missed": int(r.missed_streak) if r.missed_streak == r.missed_streak else 0,
+                    "p_play": float(r.p_play), "usual_min": float(r.usual_min),
+                    "effect": float(effects.get(r.player, 0.0))})
+    return sorted(out, key=lambda d: d["effect"])
+
+
+def absence_total(state, team: int, date, season: int, status: dict | None, roster: list | None,
+                  is_playoff: int = 0) -> float:
+    """Team strength tonight minus at full strength (points per 100 possessions): the combined effect of absences."""
+    lu = state.lineup(team, pd.Timestamp(date), season, status, roster, is_playoff)
+    return float(lu["value_tonight"].sum() - lu["value_full"].sum()) if len(lu) else 0.0
+
+
+def team_summary(games: pd.DataFrame, state, season: int) -> pd.DataFrame:
+    """Per team: this season's record (or last season's if it hasn't started), last-10 record and average margin,
+    and current Elo. For the explorer's comparison table."""
+    rows = []
+    elo = state._elo(season)
+    for t, abbr in state.teams.items():
+        mine = games[(games.home_id == t) | (games.away_id == t)].sort_values("date")
+        margin = pd.Series(mine.margin.to_numpy() * (mine.home_id == t).map({True: 1, False: -1}).to_numpy(), index=mine.index)
+        won = margin > 0
+        cur = mine.season == season
+        rec_season = season if cur.any() else season - 1
+        rs = (mine.season == rec_season) & (mine.is_playoff == 0)
+        last10 = mine.index[-10:]
+        rows.append({"team_id": t, "team": abbr, "record_season": rec_season,
+                     "wins": int(won[rs].sum()), "losses": int((~won[rs]).sum()),
+                     "last10_w": int(won.loc[last10].sum()), "last10_l": int((~won.loc[last10]).sum()),
+                     "last10_margin": float(margin.loc[last10].mean()), "elo": float(elo.get(t, 1505))})
+    out = pd.DataFrame(rows)
+    out["elo_rank"] = out["elo"].rank(ascending=False, method="min").astype(int)
+    return out
 
 
 def predict_games_v3(model, state, games: pd.DataFrame, season: int, status: dict | None, rosters: dict) -> pd.DataFrame:
@@ -146,6 +171,8 @@ def predict_games_v3(model, state, games: pd.DataFrame, season: int, status: dic
                      "injury_cost": float(x["injury_cost_live"].iloc[0]),
                      "home_injuries": injury_detail(state, g.home_id, g.date, season, status, rosters.get(g.home_id), g.is_playoff),
                      "away_injuries": injury_detail(state, g.away_id, g.date, season, status, rosters.get(g.away_id), g.is_playoff),
+                     "home_absences": absence_total(state, g.home_id, g.date, season, status, rosters.get(g.home_id), g.is_playoff),
+                     "away_absences": absence_total(state, g.away_id, g.date, season, status, rosters.get(g.away_id), g.is_playoff),
                      **{f"why_{k}": v for k, v in why.items()}})
         host = names.loc[g.home_id, "team"]
         state.add_scheduled(g.home_id, g.date, host)
@@ -167,25 +194,35 @@ def export_v3(state, model, cfg: dict, season: int, status: dict | None = None, 
         if src.exists():
             shutil.copy(src, APP_DATA / f"{name}_v3.json")
 
-    # Display offsets. Predictions only use differences, so the absolute level of D is arbitrary (O is pinned to
-    # average 0 in the fit, D floats). For readability, centre player defence on its possession-weighted average
-    # and team strength on the league average of full-strength ratings.
+    # Display centring. Predictions only use differences, so the absolute level is arbitrary (O is pinned to
+    # average 0 in the fit, D floats). One offset for everything: an average team (league mean of full-strength
+    # ratings) shows as 0, and each player is shifted by a fifth of that, so a team's strength is exactly the sum
+    # of its players' displayed values (every team's minutes add up to 5 x 48).
     import json
     fits = pd.read_parquet(PROCESSED / "player_ratings.parquet")
     latest = fits[fits["fit_date"] == fits["fit_date"].max()]
-    d_offset = float(np.average(latest["D"], weights=latest["poss"].fillna(0) + 1e-9))
     names = team_names()
     today = max(pd.Timestamp.today().normalize(), state.as_of)
     full = [state.team_inputs(t, today, a, 0, state.candidates(t, today, season, status, (rosters or {}).get(t)))
             for t, a in zip(names.team_id, names.team)]
     team_offset = float(np.mean([f["O_full_live"] + f["D_full_live"] for f in full]))
     team_o_offset = float(np.mean([f["O_full_live"] for f in full]))
-    (APP_DATA / "display.json").write_text(json.dumps({"player_d_offset": d_offset, "team_net_offset": team_offset,
-                                                        "team_o_offset": team_o_offset}))
+    player_offset = team_offset / 5
+    d_offset = player_offset          # O is already centred at 0, so the whole shift lands on D
+    (APP_DATA / "display.json").write_text(json.dumps({"player_offset": player_offset, "team_net_offset": team_offset,
+                                                        "team_o_offset": team_o_offset,
+                                                        "ratings_fit_date": str(fits["fit_date"].max().date())}))
 
-    # player values: rating x usual minutes, on each player's current team
+    # player values: rating x usual minutes, on each player's current team. Also the box-score-only estimate
+    # (production) next to the impact rating, and how much recency-weighted court time the rating rests on.
     r = state.ratings.copy()
     r["D"] = r["D"] - d_offset
+    extra = latest.set_index("player_id").reindex(r.index)
+    r["O_box"] = extra["O_prior"]
+    r["D_box"] = extra["D_prior"] - d_offset
+    r["net_box"] = r["O_box"] + r["D_box"]
+    r["sample_poss"] = extra["poss"].fillna(0.0)
+    r["confidence"] = pd.cut(r["sample_poss"], [-1, 1500, 5000, float("inf")], labels=["low", "medium", "high"]).astype(str)
     r["player"] = state.names.reindex(r.index).values
     # current team: the official roster when we have it, otherwise the latest move or appearance
     on_roster = {p: t for t, ps in (rosters or {}).items() for p in ps}

@@ -205,9 +205,10 @@ def residual_features(games: pd.DataFrame, elo: pd.DataFrame, home_adv: float) -
 
 
 def build_matrix(games, team_games, cands, ratings, fit_for_game, prior_rookie, playoff_curve,
-                 heights, shots, rookie_min=None, elo_c: float = 0.0) -> pd.DataFrame:
+                 heights, shots, rookie_min=None, elo_c: float = 0.0, save_projection: bool = True) -> pd.DataFrame:
     proj = projections(games, cands, ratings, fit_for_game, prior_rookie, playoff_curve, heights, rookie_min)
-    proj.to_parquet(PROCESSED / "team_projection.parquet", index=False)  # lets experiments re-run Elo variants
+    if save_projection:
+        proj.to_parquet(PROCESSED / "team_projection.parquet", index=False)  # lets experiments re-run Elo variants
     form = team_form(team_games)
     style = team_style(team_games, shots)
     sched = schedule_features(team_games)

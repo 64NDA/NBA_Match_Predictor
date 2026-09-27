@@ -19,7 +19,7 @@ def test_truncated_rebuild_matches():
     from nbapred.features.availability import candidate_table, name_keys
     from nbapred.features.stints import load_stints
     from nbapred.features.style import heights
-    from nbapred.models.availability import predict_full
+    from nbapred.models.availability import predict_healthy
 
     games, tg, pg = load("games"), load("team_games"), load("player_games")
     stints, ratings = load_stints(), pd.read_parquet(PROCESSED / "player_ratings.parquet")
@@ -49,7 +49,7 @@ def test_truncated_rebuild_matches():
     from nbapred.data import transactions
     cands, _ = candidate_table(g, p, tipoffs(games), keys, transactions.load())
     cands["p_live"], cands["p_blind"] = model.predict(cands), model.predict(cands, blind=True)
-    cands["p_full"] = predict_full(model, cands)
+    cands["p_healthy"] = predict_healthy(model, cands)
     rt = ratings[ratings["fit_date"] <= cutoff]
     m = MX.build_matrix(g, t, cands, rt, IM.ratings_for_games(rt, g).to_dict(), prior.rookie, curve,
                         heights(fetch.player_bio()), shots[shots["game_id"].isin(g["game_id"])],

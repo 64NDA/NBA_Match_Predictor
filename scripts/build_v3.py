@@ -21,7 +21,7 @@ from nbapred.data import fetch, transactions as TX
 from nbapred.data.build import load, tipoffs
 from nbapred.features import availability as AV, impact as IM, matrix_v3 as MX, stints as ST, style as SY
 from nbapred.features.projection import fit_playoff_curve, rookie_minutes
-from nbapred.models.availability import AvailabilityModel, compare, predict_full
+from nbapred.models.availability import AvailabilityModel, compare, predict_healthy
 
 sys.stdout.reconfigure(encoding="utf-8", line_buffering=True)
 STEPS = ["stints", "ratings", "candidates", "availability", "shots", "matrix"]
@@ -93,7 +93,7 @@ if run("availability"):
     model = AvailabilityModel(kind).fit(cands)
     cands["p_live"] = model.predict(cands)
     cands["p_blind"] = model.predict(cands, blind=True)
-    cands["p_full"] = predict_full(model, cands)
+    cands["p_healthy"] = predict_healthy(model, cands)
     AV.save(cands)
     joblib.dump(model, PROCESSED / "availability_model.joblib")
     log(f"availability model: {kind}")

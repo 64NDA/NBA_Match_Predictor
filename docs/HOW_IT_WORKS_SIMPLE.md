@@ -127,6 +127,20 @@ We also estimate **pace** (how fast both teams play) to predict how many points 
 
 ---
 
+### 2e. Rating vs value: the Queta–Maxey question
+
+A player's **rating** is how much better his team does *per 100 possessions while he's on court*. It's worked
+out with all nine other players on the floor taken into account, so it's about him, not his team. A defensive
+big man like Neemias Queta and a scoring guard like Tyrese Maxey can have similar ratings. But Maxey plays about
+38 minutes and Queta about 24, so Maxey's **value** (rating × minutes ÷ 48, in points per game) is clearly
+bigger. The app shows both, and sorts by value.
+
+**How far back does it look?**
+- **Ratings:** a game from a season ago counts half as much as one today.
+- **Usual minutes:** a game from 8 games ago counts half as much as the latest one.
+
+We tested shorter and longer memories, and these were as good as any.
+
 ## Step 3: matchups, "does their style beat ours?"
 
 Some teams are bad matchups for each other even when they're equally good overall.
@@ -143,6 +157,11 @@ We describe each team's style with numbers (how often they shoot threes, how oft
 well they rebound…). Then we let **machine learning (a random forest / gradient boosting)** look for patterns
 like "rim-attacking teams under-perform against shot-blockers". This is the kind of job those models are
 good at: **spotting combinations** we might not think to write down.
+
+**Head-to-head history** was tested too. For each past meeting between the two teams, we asked how much it
+beat or missed our own prediction, counting more when the same players were involved. For Denver vs Minnesota it
+pointed the right way most of the time, but across all teams it didn't help, so it's shown in the app as
+background rather than used in predictions.
 
 **What testing showed:** over the regular season these style features made predictions slightly *worse*, so
 they're **not in the final model**. In the playoffs they showed a small hint of helping, but 361 playoff games is
@@ -214,12 +233,12 @@ such as an injury report published after tip-off.
 |---|---|---|
 | v1 (random forest, one season) | ~62%, and self-contradicting | – |
 | v2 | 65.1% | 68.4% |
-| **v3** | **67.1%** | 68.8% |
+| **v3** | **67.1%** | 69.0% |
 | Elo alone | 64.8% | 68.2% |
 | Bookmakers | ~68–70% | |
 
 v3's **percentages** are clearly better than v2's in both periods. On 2025-26, a season where even simple Elo got
-68%, its **pick accuracy** was about the same as v2's (68.8% vs 68.4%, within luck).
+68%, its **pick accuracy** was about the same as v2's (69.0% vs 68.4%, within luck).
 
 **Who's on which team, and when.** Every prediction uses the roster as it stood on that day. We replay the
 NBA's list of every trade, signing and release since 2015, so a player traded in February stops counting for his

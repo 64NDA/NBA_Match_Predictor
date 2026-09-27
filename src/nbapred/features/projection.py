@@ -72,11 +72,28 @@ def playoff_multiplier(rank: np.ndarray, curve: pd.Series | None) -> np.ndarray 
     return curve.reindex(np.clip(rank, 1, curve.index.max())).to_numpy()
 
 
+INJURY_STATUSES = {"Out", "Doubtful", "Questionable", "Probable"}
+
+
+def injury_signal(cands: pd.DataFrame) -> np.ndarray:
+    """Players with a reason to think they might be hurt: on the injury report, or missed the team's recent game(s)
+    this season. Only these are restored when computing full strength."""
+    listed = cands["status"].isin(INJURY_STATUSES).to_numpy()
+    missing = pd.to_numeric(cands["missed_streak"], errors="coerce").fillna(0).to_numpy() >= 1
+    return listed | missing
+
+
+def full_strength_p(p_play: np.ndarray, p_healthy: np.ndarray, signal: np.ndarray) -> np.ndarray:
+    """Full strength = tonight's lineup with only the possibly-injured players restored to their healthy chance of
+    playing. Everyone else keeps tonight's chance, so the difference is exactly the effect of absences."""
+    return np.where(signal, np.maximum(p_play, p_healthy), p_play)
+
+
 def team_projection(cands: pd.DataFrame, ratings: pd.DataFrame, rookie: tuple,
                     playoff_curve: pd.Series | None = None, is_playoff: bool = False,
                     rookie_min: pd.Series | None = None) -> dict:
-    """cands: one team's candidates with columns player_id, p_play, p_full, min_ewm.
-    p_full = chance of playing if nobody were injured (keeps coach's-decision benchwarmers out).
+    """cands: one team's candidates with columns player_id, p_play, p_healthy, status, missed_streak, min_ewm.
+    p_healthy = his chance of playing if he weren't hurt (see full_strength_p).
     ratings: index player_id, columns O, D. Returns team O/D for the expected lineup and at full strength."""
     r = ratings.reindex(cands["player_id"])
     O = r["O"].fillna(rookie[0]).to_numpy()
@@ -85,7 +102,8 @@ def team_projection(cands: pd.DataFrame, ratings: pd.DataFrame, rookie: tuple,
     rank = (-usual).argsort().argsort() + 1
     mult = playoff_multiplier(rank, playoff_curve) if is_playoff else None
     e = expected_minutes(cands["p_play"].to_numpy(), usual, mult)
-    full = expected_minutes(cands["p_full"].to_numpy(), usual, mult)
+    p_full = full_strength_p(cands["p_play"].to_numpy(), cands["p_healthy"].to_numpy(), injury_signal(cands))
+    full = expected_minutes(p_full, usual, mult)
     return {"O": float(O @ e / 48), "D": float(D @ e / 48),
             "O_full": float(O @ full / 48), "D_full": float(D @ full / 48)}
 

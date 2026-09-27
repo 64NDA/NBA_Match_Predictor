@@ -21,8 +21,8 @@ scores the probabilities (lower is better).
 
 | | Walk-forward 2021-22 → 2024-25 | 2025-26 holdout* |
 |---|---|---|
-| **v3, live** | **67.1% · 0.606** | **68.8% · 0.591** |
-| v3, no injury report | 66.4% · 0.614 | 68.1% · 0.600 |
+| **v3, live** | **67.1% · 0.606** | **69.0% · 0.591** |
+| v3, no injury report | 66.3% · 0.614 | 68.1% · 0.600 |
 | v2, live (no injury information) | 65.1% · 0.627 | 68.4% · 0.606 |
 | Elo only | 64.8% · 0.627 | 68.2% · 0.604 |
 | Always pick the home team | 55.5% · 0.687 | 55.5% · 0.687 |
@@ -33,9 +33,16 @@ scores the probabilities (lower is better).
 
 **v3 against v2, both live:**
 - log-loss is significantly better on both the walk-forward (8 SE) and the holdout (2.6 SE)
-- accuracy is +2.0pp over four seasons, and +0.5pp (within noise) on the unusually predictable 2025-26 season
+- accuracy is +2.0pp over four seasons, and +0.6pp (within noise) on the unusually predictable 2025-26 season
 
 **Where the gain comes from:** almost all of it is **player ratings × minutes** (−0.019 log-loss).
+
+**Player and team strength, tested:**
+- On-court impact (from play-by-play) starting from a box-score estimate beats both box-score-only and impact
+  with no starting point.
+- Adding players up by expected minutes beats equal weights (the v2 way) and star-weighting.
+- Rating and minutes memories (half-life 1 season, and 8 games) sit on a flat optimum.
+- A light head-to-head "matchup history" term didn't help overall, so it's shown in the app as context instead.
 
 **Time-correct rosters:** every prediction, historical or live, uses the roster as it stood that day. The NBA's
 dated trades, signings and waivers are applied in the backtest, and live predictions use the official rosters.
@@ -65,7 +72,7 @@ Details are in [analysis/V3_RESULTS.md](analysis/V3_RESULTS.md).
 ## Testing
 - **Walk-forward evaluation** with paired standard errors; a model change is kept only beyond 2 SE.
 - **A one-time holdout.**
-- **33 automated tests**, including:
+- **34 automated tests**, including:
   - **no look-ahead:** rebuilding everything from truncated data reproduces every earlier feature, including the
     weekly player ratings
   - **train/serve parity:** the app's features equal the training features exactly

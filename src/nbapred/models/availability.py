@@ -91,5 +91,6 @@ def healthy(c: pd.DataFrame) -> pd.DataFrame:
                     share_last10=np.where(regular, 1.0, c["share_last10"]), new_season=0)
 
 
-def predict_full(model: "AvailabilityModel", c: pd.DataFrame) -> np.ndarray:
+def predict_healthy(model: "AvailabilityModel", c: pd.DataFrame) -> np.ndarray:
+    """Chance of playing if he weren't hurt (used only for players with an injury signal)."""
     return model.predict(healthy(c), blind=True)

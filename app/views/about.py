@@ -65,3 +65,27 @@ dated trades, signings and waivers since 2015. Live predictions use the official
 the last injury report aren't known. The roster-moves feed has no contract expiries, so an unsigned free agent is
 only known once someone signs him.
 """)
+
+# ---- time windows: read from the code's settings so they can't drift ------------------------------
+from definitions import DEFS  # noqa: E402
+from nbapred.features.availability import MIN_HALF_LIFE, POOL_WINDOW  # noqa: E402
+from nbapred.features.elo import Elo  # noqa: E402
+from nbapred.features.impact import FIT_EVERY_DAYS, ImpactConfig  # noqa: E402
+
+cfg, elo = ImpactConfig(), Elo()
+st.subheader("Time windows: what each number is based on")
+st.markdown(f"""
+| Statistic | Data | Time window |
+|---|---|---|
+| **Player impact rating** (offence, defence) | every 10-man stretch of play since 2015-16 | recency-weighted: weight halves every **{cfg.half_life_days / 365:.1f} season(s)**; ignored after {cfg.window_days / 365:.0f} seasons; refit every {FIT_EVERY_DAYS} days |
+| **Box-score estimate** (the rating's starting point) | his per-100-possession stats | weight halves every **{cfg.box_half_life_days / 365:.1f} season(s)**; the formula was learned once, from 2015-16 to 2019-20 |
+| **Usual minutes** | minutes in games he played | weight halves every **{MIN_HALF_LIFE} games**; carries over from last season until he plays |
+| **Chance of playing** | injury report ≈1 h before tip-off + absences | absences counted **this season only**; the status meanings were learned from 2016-17 to 2020-21 |
+| **Team strength** | current official roster × the above | as of today |
+| **Elo** | every result since 2015-16 | each game moves it (K = {elo.k:.0f}); **{1 - elo.carryover:.0%} pulled back to average every offseason**, so the last season or so dominates |
+| **Rest & travel** | the schedule | the last 7 days |
+| **Who counts for a team** | official roster (live); dated trades, signings and waivers (backtest) | on the day; a player drops out of the backtest pool after {POOL_WINDOW} team games without playing |
+""")
+
+st.subheader("Does the player rating measure the player, or his team?")
+st.markdown(DEFS["impact"] + "\n\n" + DEFS["per100"] + "\n\n" + DEFS["box"])

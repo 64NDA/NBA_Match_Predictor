@@ -19,9 +19,9 @@ All numbers below use **time-correct rosters**: roster moves are applied as of e
 
 | | Walk-forward 2021-25 | 2025-26 holdout, 1st look | 2025-26 holdout, 2nd look |
 |---|---|---|---|
-| **v3, live (injury report)** | **67.1% · 0.6060** | 67.3% · 0.5936 | **68.8% · 0.5908** |
-| v3, no injury report | 66.4% · 0.6140 | 66.6% · 0.6043 | 68.1% · 0.6003 |
-| v3, knowing who played (ceiling) | 67.3% · 0.6042 | – | 68.3% · 0.5871 |
+| **v3, live (injury report)** | **67.1% · 0.6061** | 67.3% · 0.5936 | **69.0% · 0.5910** |
+| v3, no injury report | 66.3% · 0.6140 | 66.6% · 0.6043 | 68.1% · 0.6004 |
+| v3, knowing who played (ceiling) | 67.3% · 0.6044 | – | 68.4% · 0.5874 |
 | v2, live (no availability information) | 65.1% · 0.6272 | 68.4% · 0.6058 | 68.4% · 0.6058 |
 | v2, knowing who played | 66.6% · 0.6106 | 68.6% · 0.5896 | 68.6% · 0.5896 |
 | Elo only | 64.8% · 0.6268 | 68.2% · 0.6038 | 68.2% · 0.6038 |
@@ -29,11 +29,12 @@ All numbers below use **time-correct rosters**: roster moves are applied as of e
 
 **About the two holdout looks:**
 - The **1st look** was run once with the frozen configuration.
-- After it, checking the production output found four bugs:
+- After it, checking the production output found five issues:
   - minutes squeezed stars when rosters were large
   - the offseason was read as an injury
   - rosters ignored trades and signings
   - end-of-season absences carried into the next season
+  - "full strength" re-predicted everyone, not just the injured
 - Fixing them changed features, not the configuration, and the holdout was re-evaluated as a **2nd look**.
 - The 2nd look is no longer a clean first look. The walk-forward remains the main evidence.
 
@@ -43,9 +44,9 @@ All numbers below use **time-correct rosters**: roster moves are applied as of e
 |---|---|---|
 | Walk-forward | **−0.021 ± 0.003 (8 SE)** | **+2.0pp** |
 | Holdout, 1st look | −0.012 ± 0.006 (2.1 SE) | −1.1pp (within noise) |
-| Holdout, 2nd look | −0.015 ± 0.006 (2.6 SE) | +0.5pp (within noise) |
+| Holdout, 2nd look | −0.015 ± 0.006 (2.6 SE) | +0.6pp (within noise) |
 
-On the 2nd look, **v3 live also beats Elo by 2.2 SE**. 2025-26 was an unusually predictable season: even plain
+On the 2nd look, **v3 live also beats Elo by 2.2 SE** (+0.8pp accuracy). 2025-26 was an unusually predictable season: even plain
 Elo got 68%.
 
 **Knowing who played:** v3 beats v2 over the walk-forward (−0.006 ± 0.002, 3 SE).
@@ -93,6 +94,58 @@ Trees and neural nets help where the problem is **non-linear with plenty of data
 rows, where missing 1 game and missing 10 behave very differently. They don't help at game level, with about 13k
 games and a mostly additive signal.
 
+## How to measure a player, and add players up to a team (`v3_strength_methods_output.txt`)
+
+| Method | d log-loss vs current | Verdict |
+|---|---|---|
+| **Current:** on-court impact (RAPM) starting from a box-score estimate, weighted by expected minutes | – | – |
+| Box-score estimate only | +0.0052 ± 0.0015 | **worse** (3.5 SE) |
+| On-court impact with no box-score starting point | +0.0034 ± 0.0009 | **worse** (3.8 SE) |
+| Team = top 8 players, equal weight (the v2 way) | +0.0024 ± 0.0012 | **worse** (2 SE) |
+| Team = star-weighted (minutes^1.5) | +0.0008 ± 0.0005 | ~same, slightly worse |
+
+- **On-court impact carries information box scores don't:** defence, spacing, screening.
+- **The box-score starting point stops low-minute players' ratings being noise.**
+- **Weighting by expected minutes beats both equal weights and extra star weighting,** so deep-bench players
+  who rarely play count for almost nothing. Checked on the current rosters: players under 10 usual minutes get
+  about 1% of a team's value on average.
+
+**What the rating means.** The rating is impact per 100 possessions *while on court*, adjusted for all nine other
+players on the floor. It measures the player, not his team. It is **not** total value: a defensive big man and a
+star guard can have similar per-100 ratings (e.g. Queta and Maxey), while the guard plays far more minutes. The app
+therefore leads with **value = rating × minutes ÷ 48**.
+
+## Time windows (`v3_timescales_output.txt`)
+
+| Statistic | Chosen | Also tested | Result |
+|---|---|---|---|
+| Rating memory × shrinkage | half-life 1 season, λ 3,000 | ½, 1, 2 seasons × λ 1k / 3k / 10k | flat optimum: nothing better beyond noise; λ 1,000 at 1 season is worse |
+| Box-score profile memory | half-life 1 season | ½, 2 seasons | ~same |
+| Usual minutes | half-life 8 games, carries over | 4, 16 games; current season only | ~same |
+
+The model isn't sensitive to these within sensible ranges, so the chosen values are documented, not fine-tuned.
+
+## Matchup history (`v3_matchup_history_output.txt`)
+
+**Question:** do teams that keep meeting with the same cores (Denver vs Minnesota) have a matchup effect the
+model misses?
+
+**Feature tested.** For each earlier meeting of the pair:
+- the **surprise**: actual margin minus the model's own prediction, made using only earlier seasons
+- **weighted by recency and by roster continuity**, i.e. the share of that game's minutes played by today's
+  rotation
+- **heavily shrunk** toward zero
+
+Variants: plain, continuity-weighted, stronger shrinkage, 2-season memory, × closeness (evenly matched teams only),
+and playoffs only.
+
+**Result:** every variant was ~same, with d log-loss 0.0000 to +0.0005, on all games and on the 361 playoff games.
+**For Denver vs Minnesota the feature pointed the right way in 5 of the last 6 meetings,** so for a few stable
+pairings the effect looks real. Across all pairings it's mostly noise, and the model gives it no weight.
+
+**Shipped as context, not as a model input.** The explorer shows the head-to-head record and how each side has done
+against the model's expectations in recent meetings.
+
 ## Final configuration (`models/v3/config.json`)
 - **Groups:** home court, Elo, player ratings, injuries, rest & travel, playoff flag.
 - **Model:** ridge (no intercept), trained on the live-availability view.
@@ -118,6 +171,9 @@ games and a mostly additive signal.
 - **End-of-season absences carried into the next season:** a team resting players in April made them look
   unlikely to play on opening night. Absence features are now counted within the current season only, and are
   "unknown" before a team's first game.
+- **"Full strength" re-predicted every player's chance of playing,** not just the injured ones, so "absences" could
+  make a healthy team look better. Now only players with an injury signal (on the report, or missed recent games)
+  are restored.
 
 ## Known limitations
 - The moves feed has no contract expiries, so unsigned free agents and retirements aren't known until a new team
