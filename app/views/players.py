@@ -1,9 +1,9 @@
 import streamlit as st
 
-from common import app_json, table, teams
+from common import app_json, page_header, table, teams
 from definitions import explain, helptext
 
-st.title("Players")
+page_header("Ratings & value", "Players")
 disp = app_json("display")
 st.caption(f"Current official rosters. Ratings are from the fit on {disp.get('ratings_fit_date', '?')}. "
            "Sorted by **value**: how many points per game a player adds in the minutes he plays.")

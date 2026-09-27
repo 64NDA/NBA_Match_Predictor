@@ -1,13 +1,13 @@
 import pandas as pd
 import streamlit as st
 
-from common import AWAY, HOME, STATUS_OPTIONS, app_json, elo_chart, model, prob_bar, state, table, teams, why_chart
+from common import (AWAY, HOME, STATUS_OPTIONS, app_json, elo_chart, model, page_header, prob_bar, stat_comparison,
+                    state, table, teams, why_chart)
 from definitions import explain, helptext
 from nbapred.config import current_season
 
-st.title("Matchup explorer")
-st.caption("Any two teams, today or later, with today's rosters, player ratings and injury report. Change a "
-           "player's status and everything below updates.")
+page_header("What if", "Matchup explorer", "Any two teams, today or later, with today's rosters, player ratings and "
+            "injury report. Change a player's status and everything below updates.")
 
 s, m, t = state(), model(), teams().sort_values("name")
 names, abbr = dict(zip(t["team_id"], t["name"])), dict(zip(t["team_id"], t["team"]))
@@ -83,7 +83,7 @@ def side(tid):
         r = summary.loc[tid]
         row["Elo rank"] = f"{int(r.elo_rank)} of 30"
         row[f"Record ({int(r.record_season)}-{str(int(r.record_season) + 1)[-2:]})"] = f"{int(r.wins)}–{int(r.losses)}"
-        row["Last 10 games"] = f"{int(r.last10_w)}–{int(r.last10_l)}, avg margin {r.last10_margin:+.1f}"
+        row["Last 10 (avg margin)"] = f"{int(r.last10_w)}–{int(r.last10_l)} ({r.last10_margin:+.1f})"
     sched = s._schedule(tid, game_date, abbr[home_id])
     row["Days of rest"] = f"{sched['rest_days']:.0f}" + (" (back-to-back)" if sched["b2b"] else "")
     return row
@@ -96,7 +96,7 @@ comp.loc["Win chance: full model"] = [f"{1 - p.p_home:.0%}", f"{p.p_home:.0%}"]
 a, b = st.columns([2, 3])
 with a:
     st.markdown("##### Side by side")
-    st.dataframe(comp, use_container_width=True)
+    stat_comparison(comp, abbr[away_id], abbr[home_id])
     st.caption("Strength = projected net rating (points per 100 possessions; 0 = an average team). "
                "Elo is results-only; strength is who's playing. They can disagree, e.g. after a big trade.")
 with b:

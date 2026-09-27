@@ -1,6 +1,16 @@
+from pathlib import Path
+
 import streamlit as st
 
 st.set_page_config(page_title="NBA Match Predictor", page_icon="🏀", layout="wide")
+
+from common import inject_css  # noqa: E402  (after set_page_config)
+
+inject_css()
+st.logo(str(Path(__file__).parent / "assets" / "ball.svg"), size="large")
+st.sidebar.markdown('<div class="nbap-brand">NBA Match<br><span>Predictor</span></div>'
+                    '<div class="nbap-brand-sub">Win chances and scores from who\'s playing tonight</div>',
+                    unsafe_allow_html=True)
 
 pages = st.navigation([
     st.Page("views/upcoming.py", title="Upcoming games", icon=":material/calendar_month:", default=True),

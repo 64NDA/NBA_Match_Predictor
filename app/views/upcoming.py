@@ -1,9 +1,9 @@
 import streamlit as st
 
-from common import app_json, prediction_card, table
+from common import app_json, page_header, prediction_card, table
 from definitions import explain
 
-st.title("Upcoming games")
+page_header("This week", "Upcoming games", "Win chances and predicted scores, using today's rosters and injury report.")
 up = table("upcoming")
 if up.empty:
     st.info("No scheduled games in the next week. Run `scripts/daily_update.py` once the schedule is out.")

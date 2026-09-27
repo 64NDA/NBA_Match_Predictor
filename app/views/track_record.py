@@ -4,10 +4,10 @@ import plotly.graph_objects as go
 import streamlit as st
 from sklearn.metrics import log_loss
 
-from common import HOME, table
+from common import GOLD, MUTED, page_header, style_fig, table
 
-st.title("Track record")
-GRAY = "rgba(128,128,128,0.7)"
+page_header("Results", "Track record", "How the model has done on games it hadn't seen.")
+GRAY = MUTED
 ll = lambda y, p: log_loss(y, np.clip(p, 1e-4, 1 - 1e-4), labels=[0, 1])
 acc = lambda y, p: ((p > 0.5) == y.astype(bool)).mean()
 
@@ -35,7 +35,8 @@ v3, v2 = table("backtest_v3"), table("backtest")
 bt = v3.merge(v2[["game_id", "p_home"]].rename(columns={"p_home": "p_v2"}), on="game_id", how="left")
 st.subheader("Backtest (out-of-sample)")
 st.caption("Every game was predicted by a model trained only on earlier seasons, using the injury report as it stood "
-           "an hour before tip-off. 2021-25 were used to choose the model; **2025-26 was held out and evaluated once**.")
+           "an hour before tip-off. 2021-25 were used to choose the model. **2025-26 was held out**: evaluated once, then re-evaluated after "
+           "bug fixes found later (see How it works).")
 
 
 def summarise(d):
@@ -46,8 +47,10 @@ def summarise(d):
 
 
 per = bt.dropna(subset=["p_v2"]).groupby("season").apply(summarise)
-per.index = [f"{s}-{str(s + 1)[-2:]}" + (" (holdout)" if s == bt.season.max() else "") for s in per.index]
-st.dataframe(per, use_container_width=True, column_config={
+per.index = [f"{s}-{str(s + 1)[-2:]}" + (" held out" if s == bt.season.max() else "") for s in per.index]
+per = per.rename_axis("Season").reset_index()
+st.dataframe(per, use_container_width=True, hide_index=True, column_config={
+    "Season": st.column_config.TextColumn(width="medium"),
     "Games": st.column_config.NumberColumn(format="%d"),
     **{c: st.column_config.NumberColumn(format="percent") for c in ["v3 acc", "v2 acc", "Elo acc", "Home-team acc"]},
     **{c: st.column_config.NumberColumn(format="%.3f") for c in ["v3 log-loss", "v2 log-loss"]},
@@ -59,16 +62,15 @@ with left:
     fig = go.Figure()
     fig.add_scatter(x=[0, 1], y=[0, 1], mode="lines", line=dict(color=GRAY, dash="dot", width=1), name="perfect", hoverinfo="skip")
     bins = np.linspace(0, 1, 11)
-    for col, name, color, width in (("p_v2", "v2", GRAY, 1.5), ("p_home", "v3", HOME, 2.5)):
+    for col, name, color, width in (("p_v2", "v2", GRAY, 1.5), ("p_home", "v3", GOLD, 2.5)):
         cal = bt.groupby(pd.cut(bt[col], bins), observed=True).agg(pred=(col, "mean"), actual=("home_win", "mean"), n=("home_win", "size"))
         fig.add_scatter(x=cal.pred, y=cal.actual, mode="lines+markers", line=dict(color=color, width=width), name=name,
                         marker=dict(size=8 if name == "v3" else 6, line=dict(width=2, color="white")), customdata=cal.n,
                         hovertemplate=name + ": predicted %{x:.0%} → won %{y:.0%} (%{customdata} games)<extra></extra>")
-    fig.update_layout(height=340, margin=dict(l=0, r=0, t=10, b=0), legend=dict(orientation="h", y=1.1),
-                      xaxis=dict(title="predicted home win probability", tickformat=".0%", range=[0, 1], gridcolor="rgba(128,128,128,0.15)"),
-                      yaxis=dict(title="actual home win rate", tickformat=".0%", range=[0, 1], gridcolor="rgba(128,128,128,0.15)"),
-                      paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    fig.update_layout(margin=dict(l=0, r=0, t=10, b=0), legend=dict(orientation="h", y=1.1),
+                      xaxis=dict(title="predicted home win probability", tickformat=".0%", range=[0, 1]),
+                      yaxis=dict(title="actual home win rate", tickformat=".0%", range=[0, 1]))
+    st.plotly_chart(style_fig(fig, 340), use_container_width=True, config={"displayModeBar": False})
     st.caption("On the dotted line, '70%' really wins 70% of the time.")
 
 with right:
@@ -77,12 +79,12 @@ with right:
     buckets = pd.cut(conf, [0.5, 0.6, 0.7, 0.8, 1.0], labels=["50–60%", "60–70%", "70–80%", "80%+"], include_lowest=True)
     correct = (bt.p_home > .5) == bt.home_win
     by = pd.DataFrame({"bucket": buckets, "correct": correct}).groupby("bucket", observed=True)["correct"].agg(["mean", "size"])
-    fig = go.Figure(go.Bar(x=by.index.astype(str), y=by["mean"], marker=dict(color=HOME, cornerradius=4),
+    fig = go.Figure(go.Bar(x=by.index.astype(str), y=by["mean"], marker=dict(color=GOLD, cornerradius=4),
                            text=[f"{v:.0%}" for v in by["mean"]], textposition="outside", customdata=by["size"],
                            hovertemplate="%{x} confident: %{y:.1%} correct (%{customdata} games)<extra></extra>"))
-    fig.update_layout(height=340, margin=dict(l=0, r=0, t=10, b=0), bargap=0.4,
-                      yaxis=dict(title="picks correct", tickformat=".0%", range=[0, 1.05], gridcolor="rgba(128,128,128,0.15)"),
-                      xaxis=dict(title="model confidence in its pick"),
-                      paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    fig.update_layout(margin=dict(l=0, r=0, t=10, b=0), bargap=0.4,
+                      yaxis=dict(title="picks correct", tickformat=".0%", range=[0, 1.05]),
+                      xaxis=dict(title="model confidence in its pick"))
+    fig.update_traces(textfont=dict(color="#EDEEF0", family="Barlow Condensed", size=15))
+    st.plotly_chart(style_fig(fig, 340), use_container_width=True, config={"displayModeBar": False})
     st.caption(f"{by['size'].sum():,} games; bucket sizes in the tooltip.")

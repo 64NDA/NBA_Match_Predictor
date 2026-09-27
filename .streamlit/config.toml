@@ -1,0 +1,23 @@
+# NBA-app inspired dark theme. Home = blue, away = red (validated for colour-blind separation on the card surface);
+# gold is the accent for controls and highlights, so red/blue only ever mean the two teams.
+[theme]
+base = "dark"
+primaryColor = "#F2B632"
+backgroundColor = "#0B0C10"
+secondaryBackgroundColor = "#17181D"
+textColor = "#EDEEF0"
+linkColor = "#F2B632"
+borderColor = "#2A2D35"
+baseRadius = "0.6rem"
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap, sans-serif"
+headingFont = "Barlow Condensed:https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&display=swap, sans-serif"
+headingFontWeights = [800, 700, 700, 600, 600, 600]
+chartCategoricalColors = ["#3B82F6", "#E03A3E", "#F2B632", "#9CA3AF"]
+
+[theme.sidebar]
+backgroundColor = "#111217"
+secondaryBackgroundColor = "#1B1C22"
+borderColor = "#23252C"
+
+[client]
+toolbarMode = "minimal"

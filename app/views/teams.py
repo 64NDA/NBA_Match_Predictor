@@ -1,11 +1,11 @@
 import pandas as pd
 import streamlit as st
 
-from common import AWAY, HOME, app_json, elo_chart, state, table, teams
+from common import AWAY, HOME, app_json, elo_chart, page_header, state, table, teams
 from definitions import explain, helptext
 from nbapred.config import current_season
 
-st.title("Teams")
+page_header("League", "Teams", "Power ratings from current rosters, Elo history and each team's players.")
 s, t = state(), teams()
 inj = app_json("injury_status")
 report = {int(k): v for k, v in inj.get("status", {}).items()}

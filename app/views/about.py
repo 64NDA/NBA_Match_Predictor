@@ -1,8 +1,8 @@
 import streamlit as st
 
-from common import app_json
+from common import app_json, page_header
 
-st.title("How it works")
+page_header("Method", "How it works")
 ho = app_json("holdout_metrics_v3")
 meta = app_json("model_meta_v3")
 wf = meta.get("walk_forward", {})
