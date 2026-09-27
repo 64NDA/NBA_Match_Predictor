@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 
-from common import AWAY, HOME, app_json, elo_chart, page_header, state, table, teams
+from common import AWAY, HOME, app_json, certainty_label, elo_chart, page_header, state, table, teams
 from definitions import explain, helptext
 from nbapred.config import current_season
 
@@ -65,13 +65,14 @@ elo_chart([(first, HOME), (second, AWAY)], seasons=(lo, hi), height=380)
 # ---- roster -----------------------------------------------------------------------------------
 st.subheader(f"{names[first]}: current roster")
 pv = table("player_values")
-r = pv[pv["team"] == first].sort_values("pts_added", ascending=False)[
-    ["player", "pts_added", "usual_min", "net", "O", "D", "confidence"]]
-r.columns = ["Player", "Value (pts/game)", "Usual min", "Impact per 100", "Offence", "Defence", "Confidence"]
+r = pv[pv["team"] == first].sort_values("pts_added", ascending=False)
+r = r.assign(certainty=[certainty_label(c, s_) for c, s_ in zip(r["confidence"], r["sample_poss"])])[
+    ["player", "pts_added", "usual_min", "net", "O", "D", "certainty"]]
+r.columns = ["Player", "Value (pts/game)", "Usual min", "Impact per 100", "Offence", "Defence", "Rating certainty"]
 st.dataframe(r, hide_index=True, use_container_width=True, column_config={
     "Value (pts/game)": st.column_config.NumberColumn(format="%+.2f", help=helptext("value")),
     "Usual min": st.column_config.NumberColumn(format="%.1f", help=helptext("usual_min")),
     "Impact per 100": st.column_config.NumberColumn(format="%+.1f", help=helptext("impact")),
     "Offence": st.column_config.NumberColumn(format="%+.1f"), "Defence": st.column_config.NumberColumn(format="%+.1f"),
-    "Confidence": st.column_config.TextColumn(help=helptext("sample"))})
+    "Rating certainty": st.column_config.TextColumn(help=helptext("sample"))})
 explain("value", "impact", "usual_min", "sample", title="How the player numbers are calculated")

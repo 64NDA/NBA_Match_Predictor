@@ -168,6 +168,11 @@ def why_chart(why: pd.Series, home: str, away: str, height: int = 280):
     st.plotly_chart(style_fig(fig, height), use_container_width=True, config={"displayModeBar": False})
 
 
+def certainty_label(level: str, poss: float) -> str:
+    """'High · 7,800 poss': rating certainty with the evidence behind it."""
+    return f"{str(level).title()} · {poss:,.0f} poss"
+
+
 def _surname(name: str) -> str:
     words = [w for w in name.split() if w.rstrip(".") not in ("Jr", "Sr", "II", "III", "IV")]
     return words[-1] if words else name

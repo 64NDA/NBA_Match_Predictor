@@ -42,8 +42,10 @@ DEFS = {
         "disagree, the impact rating is seeing things box scores miss, like defence, spacing and screening, or "
         "noise when the sample is small."),
     "sample": (
-        "**Sample.** How much recent court time the rating rests on (recency-weighted possessions). Under 1,500 is "
-        "low confidence and the rating leans on the box-score estimate. Over 5,000 is high."),
+        "**Rating certainty.** How sure we are of the player's *rating*, based on how much recent court time it rests "
+        "on (recency-weighted possessions). Low = under 1,500: the rating leans mostly on his box-score estimate and "
+        "could move a lot. Medium = 1,500 to 5,000. High = over 5,000. This is **not** about whether he'll play "
+        "tonight; that's the *chance of playing* on the Upcoming and Matchup pages."),
     "usual_min": (
         "**Usual minutes.** His average minutes *in games he played*, weighted toward recent games: the weight "
         f"halves every {MIN_HALF_LIFE} games. It carries over from last season until he plays this season. Rookies "

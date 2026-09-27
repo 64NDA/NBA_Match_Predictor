@@ -1,6 +1,6 @@
 import streamlit as st
 
-from common import app_json, page_header, table, teams
+from common import app_json, certainty_label, page_header, table, teams
 from definitions import explain, helptext
 
 page_header("Ratings & value", "Players")
@@ -24,21 +24,23 @@ d = pv[pv["team"].notna() & (pv["usual_min"] >= min_minutes)]
 if team != "All teams":
     d = d[d["team"] == team]
 d = d.sort_values("pts_added", ascending=False)
+d["certainty"] = [certainty_label(c, s_) for c, s_ in zip(d["confidence"], d["sample_poss"])]
 
 num = lambda fmt, key=None, **kw: st.column_config.NumberColumn(format=fmt, help=helptext(key) if key else None, **kw)
 if view == "Impact vs box score":
     cols = {"player": "Player", "team": "Team", "net": "Impact (net)", "net_box": "Box-score estimate",
             "O": "Impact: offence", "O_box": "Box: offence", "D": "Impact: defence", "D_box": "Box: defence",
-            "sample_poss": "Sample", "confidence": "Confidence"}
+            "certainty": "Rating certainty"}
     cfg = {"Impact (net)": num("%+.1f", "impact"), "Box-score estimate": num("%+.1f", "box"),
            "Impact: offence": num("%+.1f"), "Box: offence": num("%+.1f"), "Impact: defence": num("%+.1f"),
-           "Box: defence": num("%+.1f"), "Sample": num("%,.0f", "sample")}
+           "Box: defence": num("%+.1f"),
+           "Rating certainty": st.column_config.TextColumn(help=helptext("sample"))}
 else:
     cols = {"player": "Player", "team": "Team", "pts_added": "Value (pts/game)", "usual_min": "Usual min",
-            "net": "Impact per 100", "O": "Offence", "D": "Defence", "confidence": "Confidence"}
+            "net": "Impact per 100", "O": "Offence", "D": "Defence", "certainty": "Rating certainty"}
     cfg = {"Value (pts/game)": num("%+.2f", "value"), "Usual min": num("%.1f", "usual_min"),
            "Impact per 100": num("%+.1f", "impact"), "Offence": num("%+.1f"), "Defence": num("%+.1f"),
-           "Confidence": st.column_config.TextColumn(help=helptext("sample"))}
+           "Rating certainty": st.column_config.TextColumn(help=helptext("sample"))}
 st.dataframe(d[list(cols)].rename(columns=cols), hide_index=True, use_container_width=True, height=560,
              column_config=cfg)
 
