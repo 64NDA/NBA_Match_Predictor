@@ -79,6 +79,37 @@ Details are in [analysis/V3_RESULTS.md](analysis/V3_RESULTS.md).
   - checks that rebuilt lineups match the NBA's official rotations
   - injury-report parsing, and stint sanity across old and new data feeds
 
+## Run the app locally
+
+The app only reads the small files committed in `data/app/`, so it runs straight from a fresh clone with no data
+downloads.
+
+**Windows (PowerShell):**
+```powershell
+git clone -b v2 https://github.com/64NDA/NBA_Match_Predictor.git
+cd NBA_Match_Predictor
+python -m venv .venv
+.venv\Scripts\pip install -r requirements.txt
+.venv\Scripts\streamlit run app/streamlit_app.py
+```
+
+**macOS / Linux:**
+```bash
+git clone -b v2 https://github.com/64NDA/NBA_Match_Predictor.git
+cd NBA_Match_Predictor
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/streamlit run app/streamlit_app.py
+```
+
+Then open http://localhost:8501. Use Python 3.11 or newer. Stop the app with Ctrl+C.
+
+- **Already set up?** Just run `.venv\Scripts\streamlit run app/streamlit_app.py` (Windows) or
+  `.venv/bin/streamlit run app/streamlit_app.py` (macOS/Linux) from the project folder.
+- **Different port:** add `--server.port 8502`.
+- **Fresh predictions:** `python scripts/daily_update.py` refreshes `data/app/`. The first time, this needs the
+  full data pipeline below; after that, each run only fetches new games (a few minutes).
+
 ## Usage
 
 ```bash
