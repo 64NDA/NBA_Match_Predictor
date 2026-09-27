@@ -5,3 +5,4 @@ __pycache__/
 # rebuildable caches (scripts/build_data.py); the app only needs data/app/
 data/raw/
 data/processed/
+logs/

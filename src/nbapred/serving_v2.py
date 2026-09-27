@@ -9,10 +9,10 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from nbapred.features.build import league_level
+from nbapred.features.matrix_v2 import league_level
 from nbapred.features.elo import Elo
 from nbapred.features.form import latest_form
-from nbapred.features.players import PlayerTracker, player_features
+from nbapred.features.gamescore import PlayerTracker, player_features
 from nbapred.features.schedule import ARENAS, REST_CAP, _haversine_km
 
 

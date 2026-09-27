@@ -4,7 +4,7 @@ import pytest
 
 from nbapred.config import PROCESSED
 from nbapred.features.elo import Elo
-from nbapred.features.players import PlayerTracker
+from nbapred.features.gamescore import PlayerTracker
 
 has_data = pytest.mark.skipif(not (PROCESSED / "games.parquet").exists(), reason="run scripts/build_data.py first")
 
@@ -13,7 +13,7 @@ has_data = pytest.mark.skipif(not (PROCESSED / "games.parquet").exists(), reason
 def test_no_lookahead_leakage():
     """Features for games before a cutoff must be identical whether or not later games exist."""
     from nbapred.data.build import load
-    from nbapred.features.build import build_matrix
+    from nbapred.features.matrix_v2 import build_matrix
 
     g, tg, pg = load("games"), load("team_games"), load("player_games")
     g, tg, pg = (d[d["season"] >= 2023] for d in (g, tg, pg))

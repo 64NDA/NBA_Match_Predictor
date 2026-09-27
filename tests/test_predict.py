@@ -9,7 +9,7 @@ pytestmark = pytest.mark.skipif(not (PROCESSED / "games.parquet").exists(), reas
 @pytest.fixture(scope="module")
 def data():
     from nbapred.data.build import load
-    from nbapred.features.build import build_matrix
+    from nbapred.features.matrix_v2 import build_matrix
     g, tg, pg = load("games"), load("team_games"), load("player_games")
     return g, tg, pg, build_matrix(g, tg, pg)
 
@@ -17,8 +17,8 @@ def data():
 @pytest.mark.parametrize("day", ["2024-02-10", "2024-10-22"])  # mid-season, and a season opener
 def test_serving_features_match_training_matrix(data, day):
     """TeamState (used by the app) must reproduce the training features exactly."""
-    from nbapred.models.predictors import FEATURE_SETS, TOTAL_FEATURES
-    from nbapred.predict import TeamState
+    from nbapred.models.v2 import FEATURE_SETS, TOTAL_FEATURES
+    from nbapred.serving_v2 import TeamState
 
     g, tg, pg, matrix = data
     day = pd.Timestamp(day)

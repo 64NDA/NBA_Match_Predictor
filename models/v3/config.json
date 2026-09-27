@@ -1,0 +1,9 @@
+{
+  "groups": ["Home court", "Team strength (Elo)", "Player ratings", "Injuries", "Rest & travel", "Playoff game"],
+  "train_condition": "live",
+  "alpha": 10.0,
+  "trees": null,
+  "stack": null,
+  "elo_c": 0.0,
+  "chosen": "2026-09-27 from analysis/v3_experiments_output.txt and analysis/v3_selection_output.txt (walk-forward 2021-22..2024-25 only). Matchup & style hurt overall (-1 group was BETTER); recent form, series/h2h, trees, stacks and the MLP were within noise; Elo season-start c had no effect. Config D ties the best within noise and keeps the injury and Elo terms explainable."
+}

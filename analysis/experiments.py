@@ -17,10 +17,10 @@ from sklearn.linear_model import LogisticRegression, Ridge
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-import nbapred.features.players as PL
+import nbapred.features.gamescore as PL
 from nbapred.data.build import load
-from nbapred.features.build import load_matrix
-from nbapred.models import predictors as P
+from nbapred.features.matrix_v2 import load_matrix
+from nbapred.models import baselines as B, v2 as P
 from nbapred.models.evaluate import walk_forward
 
 sys.stdout.reconfigure(encoding="utf-8")
@@ -107,15 +107,7 @@ class PooledSigma(Variant):
         return pd.DataFrame({"p_home": norm.cdf(margin / s), "pred_margin": margin, "pred_total": np.nan}, index=test.index)
 
 
-def no_injury_info(df):
-    """What the model sees live without an injury report: everyone on the roster counts as available."""
-    df = df.copy()
-    for side in ("h", "a"):
-        df[f"{side}_available_strength"] = df[f"{side}_full_strength"]
-        df[f"{side}_missing_strength"] = 0.0
-    df["diff_available_strength"] = df.h_available_strength - df.a_available_strength
-    df["diff_missing_strength"] = 0.0
-    return df
+no_injury_info = P.no_availability  # what v2 sees live: everyone on the roster counts as available
 
 
 def live_like(features, train_blind=False):
@@ -216,8 +208,8 @@ if __name__ == "__main__":
 
     print("\n== 5. Model family (with sigma by log-loss where applicable) ==")
     print(run(m, {
-        "logistic (direct)": P.logistic(ALL),
-        "ridge + logistic avg": P.ensemble(Variant(ALL, prob="sigma_mle").fit_predict, P.logistic(ALL)),
+        "logistic (direct)": B.logistic(ALL),
+        "ridge + logistic avg": B.ensemble(Variant(ALL, prob="sigma_mle").fit_predict, B.logistic(ALL)),
         "lgbm margin": P.margin_total(ALL, "lgbm", "ridge"),
     }, base_wf).round(4).to_string())
 

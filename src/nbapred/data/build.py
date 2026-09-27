@@ -104,3 +104,11 @@ def build_all(refresh_season: int | None = None) -> None:
 
 def load(name: str) -> pd.DataFrame:
     return pd.read_parquet(PROCESSED / f"{name}.parquet")
+
+
+def tipoffs(games: pd.DataFrame) -> pd.Series:
+    """game_id -> tip-off time (ET, naive) from the season schedules; missing games default to 7:30 PM."""
+    sched = pd.concat([fetch.schedule_history(s) for s in all_seasons()])
+    t = pd.to_datetime(sched.set_index("gameId")["gameDateTimeEst"].str[:19])
+    default = games.set_index("game_id")["date"] + pd.Timedelta(hours=19, minutes=30)
+    return t.reindex(default.index).fillna(default)

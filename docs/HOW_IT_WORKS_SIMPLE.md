@@ -11,8 +11,8 @@ A smart fan asks four questions:
 
 1. **Who's been winning lately, and by how much?** → *Elo*
 2. **Who's actually playing tonight, and how good are they?** → *Player ratings + injuries*
-3. **Do these two teams' styles clash?** → *Matchup*
-4. **Where is the game, and is anyone tired?** → *Home court, rest, travel*
+3. **Where is the game, and is anyone tired?** → *Home court, rest, travel*
+4. **Do these two teams' styles clash?** → *Matchup* (we tested this carefully; see Step 3 for what we found)
 
 Our predictor answers all four with numbers, **in points**, then adds them up.
 
@@ -22,11 +22,10 @@ Our predictor answers all four with numbers, **in points**, then adds them up.
 > | Home court | Lakers at home | Lakers **+1.8** |
 > | Recent results (Elo) | Celtics have been better | Celtics **+2.5** |
 > | Who's playing | Lakers' star is out tonight | Celtics **+4.0** |
-> | Style matchup | Lakers rebound well against a small Celtics team | Lakers **+0.6** |
 > | Rest | Celtics played last night | Lakers **+1.0** |
-> | **Total** | | **Celtics by 3.1** |
+> | **Total** | | **Celtics by 3.7** |
 >
-> Then "Celtics by 3.1" is turned into "Celtics win 59% of the time", plus a predicted score like 112–109.
+> Then "Celtics by 3.7" is turned into "Celtics win 62% of the time", plus a predicted score like 113–109.
 
 Every bar in the app's **"Why?"** chart is one row of that table.
 
@@ -145,8 +144,10 @@ well they rebound…). Then we let **machine learning (a random forest / gradien
 like "rim-attacking teams under-perform against shot-blockers". This is the kind of job those models are
 good at: **spotting combinations** we might not think to write down.
 
-**Honest note:** in the regular season these effects are usually **small** (about half a point). They
-matter more in the playoffs. We only keep them if testing shows they genuinely help.
+**What testing showed:** over the regular season these style features made predictions slightly *worse*, so
+they're **not in the final model**. In the playoffs they showed a small hint of helping, but 361 playoff games is
+too few to be sure. The code is kept, to test again as more playoffs are played. Once you know how good each
+player is and who's playing, most "style" is already accounted for.
 
 ---
 
@@ -181,8 +182,13 @@ v1 problem where the model sometimes said *both* teams would win.
 | Player impact | Ridge regression | "Who's on court when good things happen?" |
 | Chance a player plays | Logistic regression vs gradient boosting (we keep the better one) | "What usually happens to players in this situation?" |
 | Minutes redistribution | Simple rule vs gradient boosting | "Who usually soaks up the missing minutes?" |
-| Style matchups | Random forest / gradient boosting | "Find style combinations that change results." |
-| Final combiner | Ridge regression, possibly blended with gradient boosting | "How much should we trust each clue?" |
+| Style matchups | Random forest / gradient boosting | Tested: didn't help, so not used |
+| Second opinion | Gradient boosting, a small neural network | Tested: no better than ridge, so not used |
+| Final combiner | Ridge regression | "How much should we trust each clue?" |
+
+The lesson: fancy models help most where there's lots of data and the pattern is bendy. "Will he play?" has
+475,000 examples, and missing 1 game is very different from missing 10. Game results have about 13,000
+examples and mostly add up in a straight line.
 
 ---
 
@@ -203,13 +209,21 @@ such as an injury report published after tip-off.
 - **(b)** using the injury report as it stood 1 hour before tip-off: **the real, honest number**
 - **(c)** with no injury report at all
 
-**Scorecard so far:**
-| Version | Accuracy (honest, live-like) |
-|---|---|
-| v1 (random forest, one season) | ~62%, and self-contradicting |
-| v2 (current) | ~65% |
-| v3 target | ~66–67% |
-| Bookmakers | ~68–70% |
+**Scorecard (live: using the injury report an hour before tip-off):**
+| Version | 2021-22 → 2024-25 | 2025-26 (locked exam) |
+|---|---|---|
+| v1 (random forest, one season) | ~62%, and self-contradicting | – |
+| v2 | 65.1% | 68.4% |
+| **v3** | **67.1%** | 68.8% |
+| Elo alone | 64.8% | 68.2% |
+| Bookmakers | ~68–70% | |
+
+v3's **percentages** are clearly better than v2's in both periods. On 2025-26, a season where even simple Elo got
+68%, its **pick accuracy** was about the same as v2's (68.8% vs 68.4%, within luck).
+
+**Who's on which team, and when.** Every prediction uses the roster as it stood on that day. We replay the
+NBA's list of every trade, signing and release since 2015, so a player traded in February stops counting for his
+old team that day. For today's games we use the official rosters.
 
 Basketball has a lot of luck in it. Even the bookmakers, with teams of analysts, get about 3 in 10 wrong.
 

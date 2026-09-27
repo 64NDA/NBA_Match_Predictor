@@ -1,0 +1,21 @@
+== Candidate configs (train + test with the injury report) ==
+                                  games     acc  log_loss  margin_mae  d_logloss      se  d_acc_pp     verdict
+A all groups                     5281.0  0.6684    0.6070     10.6188     0.0000  0.0000    0.0000  (baseline)
+B all - Matchup & style          5281.0  0.6703    0.6060     10.6057    -0.0010  0.0004    0.1894      BETTER
+C minimal (home, players, rest)  5281.0  0.6722    0.6064     10.6196    -0.0006  0.0006    0.3787       ~same
+D C + Elo + Injuries + Playoff   5281.0  0.6705    0.6060     10.6087    -0.0009  0.0005    0.2083       ~same
+
+sigma (fit on 2016-2024): {'A all groups': 11.91, 'B all - Matchup & style': 11.76, 'C minimal (home, players, rest)': 11.7, 'D C + Elo + Injuries + Playoff': 11.76}
+
+== Fair comparisons with v2 ==
+                                  games     acc  log_loss  margin_mae  d_logloss      se  d_acc_pp     verdict
+v3 D, injury report (live)       5281.0  0.6705    0.6060     10.6087    -0.0212  0.0026    1.9883      BETTER
+v2, live (no availability info)  5281.0  0.6506    0.6272     10.9420     0.0000  0.0000    0.0000  (baseline)
+v2, knowing who played           5281.0  0.6662    0.6106     10.6600    -0.0166  0.0023    1.5527      BETTER
+v3 D, knowing who played         5281.0  0.6730    0.6042     10.6024    -0.0230  0.0027    2.2344      BETTER
+v3 D, no injury report           5281.0  0.6637    0.6140     10.7197    -0.0132  0.0022    1.3066      BETTER
+
+known-lineup ceiling, v3 vs v2:
+                           games     acc  log_loss  margin_mae  d_logloss     se  d_acc_pp     verdict
+v2, knowing who played    5281.0  0.6662    0.6106     10.6600     0.0000  0.000    0.0000  (baseline)
+v3 D, knowing who played  5281.0  0.6730    0.6042     10.6024    -0.0064  0.002    0.6817      BETTER

@@ -1,36 +1,25 @@
 # NBA Match Predictor — Roadmap
 
-## Status (2026-09-26)
-Phases 0–5 are built. The remaining items are below; everything after "Original plan" is kept for reference.
+## Status (2026-09-27): v3 shipped on branch `v2`
+v3 is built and evaluated. Results are in `analysis/V3_RESULTS.md`, and the design is in
+`docs/MODEL_V3_DESIGN.md`:
+- player ratings from about 423k play-by-play stints
+- availability from official injury reports (LightGBM)
+- minutes redistribution
+- the ridge combiner
+- the Streamlit app, with injury-aware predictions and a what-if explorer
 
-**Done:**
-- 11 seasons of data via nba_api
-- the leakage and train/serve parity tests (12 tests)
-- walk-forward evaluation
-- tuned Elo
-- the player-availability model
-- the ridge margin/total model
-- the one-time 2025-26 holdout (68.6% accuracy, 0.590 log-loss)
-- the Streamlit app with 5 pages
-- the daily update script
-
-**Priorities used (per Albert):** Elo and player availability were weighted highest; rest, travel and back-to-backs
-were included but kept simple. The ablation confirmed this: players add +1.7pp over Elo, while form and schedule
-add about +0.1pp.
+Live accuracy is 66.9% over the 2021-25 walk-forward, and 67.3% on the 2025-26 holdout (log-loss 0.594).
 
 ### Next up
-- [ ] **Deploy:** push to GitHub and connect Streamlit Community Cloud (main file `app/streamlit_app.py`).
-      The repo is private, which uses a private-app slot; alternatively, make it public.
-- [ ] **Schedule the daily update:** Windows Task Scheduler to run `scripts/daily_update.py`, then commit and push
-      `data/app/` during the season. It starts 2026-10-20.
-- [ ] **Injury reports:** feed the official NBA injury report (e.g. the `nbainjuries` package) into
-      `live.predict_games` as `home_available`/`away_available`. This is the biggest live-accuracy gap.
+- [ ] **Deploy:** connect Streamlit Community Cloud to the repo (main file `app/streamlit_app.py`).
+- [ ] **Schedule `scripts/daily_update.py`:** e.g. Windows Task Scheduler at 11:00 and 17:30 ET, then commit and
+      push `data/app/`. The season starts 2026-10-20.
 - [ ] **Betting-line benchmark:** historical closing lines, to report accuracy against Vegas.
-- [ ] **Early-season adaptation:** blend Elo toward roster strength for the first ~15 games after big roster changes.
-- [ ] **Player ratings:** Game Score flatters high-usage players on bad teams (e.g. UTA's roster strength is
-      105 but its Elo is 1308). Try a minutes-weighted on/off or RAPM-style rating.
-- [ ] **Neutral sites:** add a `neutral` feature once there are enough games (about 10 per season).
-- [ ] **Retrain cadence:** retrain `scripts/train.py` monthly in-season; the walk-forward numbers are stable.
+- [ ] **Playoff matchups:** re-test matchup & style on playoffs once 2026-27 adds about 85 more playoff games.
+      It currently shows a non-significant hint (1.5 SE).
+- [ ] **Dated rosters:** season-by-season transaction logs would remove the small "newcomer" backtest bias.
+- [ ] **Late scratches:** poll the injury report closer to tip-off on game days.
 
 ---
 

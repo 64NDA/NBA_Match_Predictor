@@ -1,80 +1,120 @@
 # NBA Match Predictor
 
-Predicts NBA game winners and scorelines. It uses Elo, player availability, recent form and schedule
-features, with a Streamlit app for upcoming games, what-if injury scenarios, team ratings and a public
-track record.
+Predicts NBA winners and scorelines from **who is actually playing tonight**.
+
+- **Player ratings** measure each player's offence and defence from every 10-man stretch of play, over 11 seasons.
+- **Availability** comes from the official NBA injury report, turned into a chance of playing by a LightGBM model.
+- **Team strength** is those ratings weighted by expected minutes, combined with Elo, home court, and rest and
+  travel.
+
+A Streamlit app shows upcoming games with injury-aware probabilities, a what-if explorer where you set each
+player's status, player and team ratings, and a public track record.
+
+- **Plain-English explanation:** [docs/HOW_IT_WORKS_SIMPLE.md](docs/HOW_IT_WORKS_SIMPLE.md)
+- **Technical design:** [docs/MODEL_V3_DESIGN.md](docs/MODEL_V3_DESIGN.md)
+- **Full results:** [analysis/V3_RESULTS.md](analysis/V3_RESULTS.md)
 
 ## Results
 
-All numbers are out of sample: each game was predicted by a model trained only on earlier seasons.
+**Live** means predicting with the injury report as it stood an hour before tip-off: what the app does. Log-loss
+scores the probabilities (lower is better).
 
-| | Accuracy | Log-loss |
+| | Walk-forward 2021-22 → 2024-25 | 2025-26 holdout* |
 |---|---|---|
-| Always pick the home team | 55.5% | 0.687 |
-| Elo only | 68.2% | 0.604 |
-| **This model, 2025-26 holdout (evaluated once)** | **68.6%** | **0.590** |
-| This model, walk-forward 2021-22 → 2024-25 (5,281 games) | 66.6% | 0.611 |
-| v1 (single season, random forest) | ~62%* | – |
+| **v3, live** | **67.1% · 0.606** | **68.8% · 0.591** |
+| v3, no injury report | 66.4% · 0.614 | 68.1% · 0.600 |
+| v2, live (no injury information) | 65.1% · 0.627 | 68.4% · 0.606 |
+| Elo only | 64.8% · 0.627 | 68.2% · 0.604 |
+| Always pick the home team | 55.5% · 0.687 | 55.5% · 0.687 |
+| v1 (one season, random forest) | ~62%, per team-row, and self-contradicting | – |
 
-\*v1 was scored per team-row. In 42% of games it predicted both teams to win, or both to lose.
+\*A second look, after post-holdout bug fixes. The first look (67.3% · 0.594) and the reasons are in
+[analysis/V3_RESULTS.md](analysis/V3_RESULTS.md).
 
-The feature ablation (walk-forward accuracy) shows where the gains come from:
-- Elo alone: 64.8%
-- adding player availability: **66.5%**
-- adding form and schedule: 66.6%
+**v3 against v2, both live:**
+- log-loss is significantly better on both the walk-forward (8 SE) and the holdout (2.6 SE)
+- accuracy is +2.0pp over four seasons, and +0.5pp (within noise) on the unusually predictable 2025-26 season
 
-## How it works
+**Where the gain comes from:** almost all of it is **player ratings × minutes** (−0.019 log-loss).
 
-- **Data:** every game since 2015-16 from the official NBA stats API (`nba_api`): team box scores,
-  advanced stats and player box scores. Responses are cached, and a full backfill takes about 130 requests.
-- **One row per game:** features are home-minus-away differences, so predictions can't contradict each other.
-- **Player availability:** each player has a rolling Game Score rating. Team strength is the sum of the top
-  8 available players, compared with its full-strength roster.
-- **Elo:** margin-of-victory Elo, with between-season regression and tuned K and home advantage.
-- **Model:** ridge regression on the margin and on the total. `P(home win) = Φ(margin/σ)`, so the scoreline
-  and the winner always agree. Every prediction splits exactly into per-factor contributions (the app's "Why?" panel).
-- **Leakage guards:** two tests protect against leakage.
-  - `test_no_lookahead_leakage` rebuilds all features on truncated data and asserts nothing changes.
-  - `test_serving_features_match_training_matrix` proves the app computes features exactly as training did.
+**Time-correct rosters:** every prediction, historical or live, uses the roster as it stood that day. The NBA's
+dated trades, signings and waivers are applied in the backtest, and live predictions use the official rosters.
+
+**What didn't help, reported not hidden:**
+- style matchups: slightly worse overall, a non-significant hint in the playoffs
+- recent-form stats
+- tree-based matchup models
+- a LightGBM or neural-net second opinion
+
+Details are in [analysis/V3_RESULTS.md](analysis/V3_RESULTS.md).
+
+## How a prediction is made
+1. **Player impact:** a ridge regression (RAPM) over about 423k on-court stints.
+   - Lineups are rebuilt from play-by-play substitutions.
+   - Low-minute players are shrunk toward a box-score prior.
+   - It's refit weekly, using only earlier games, and gives offence and defence in points per 100 possessions.
+2. **Availability:** a LightGBM model gives P(plays) from the official injury report (at T−60 min) and the
+   player's recent absence history.
+3. **Minutes:** usual minutes, with absent players' minutes redistributed to 240. Stars' minutes rise in the
+   playoffs, learned from past playoffs.
+4. **Team projection:** Σ rating × expected minutes gives the projected margin, the total, and the injury cost.
+5. **Combiner:** a ridge regression over the player projection, Elo, home court, rest and travel, and the playoff
+   flag. It predicts the margin and the total. P(win) = Φ(margin/σ), with σ ≈ 11.4 fitted out-of-sample.
+   Scores come from the margin and the total, so they always agree with the pick.
+
+## Testing
+- **Walk-forward evaluation** with paired standard errors; a model change is kept only beyond 2 SE.
+- **A one-time holdout.**
+- **33 automated tests**, including:
+  - **no look-ahead:** rebuilding everything from truncated data reproduces every earlier feature, including the
+    weekly player ratings
+  - **train/serve parity:** the app's features equal the training features exactly
+  - checks that rebuilt lineups match the NBA's official rotations
+  - injury-report parsing, and stint sanity across old and new data feeds
 
 ## Usage
 
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -e ".[dev]"
 
-python scripts/build_data.py          # download + build tables (cached)
-python scripts/evaluate.py            # walk-forward comparison of baselines / feature sets / models
-python scripts/train.py               # fit production model -> models/model.joblib
-python scripts/daily_update.py        # refresh season, predict next 7 days, export data/app/
+python scripts/build_data.py              # game and box-score tables (cached nba_api calls)
+python scripts/backfill_v3.py stats       # one-off: play-by-play for every game (~3 h, resumable)
+python scripts/backfill_v3.py injuries    # one-off: official injury reports since Dec 2018
+python scripts/build_v3.py                # stints -> player ratings -> availability -> matrix (~15 min)
+python scripts/evaluate_v3.py             # the experiment suite
+python scripts/train.py --version v3      # production model -> models/v3/
+python scripts/daily_update.py            # refresh, predict the next 7 days, export data/app/
 streamlit run app/streamlit_app.py
 pytest
 ```
 
-`scripts/train.py --holdout` evaluates the held-out season. It is meant to be run once.
+`python scripts/train.py --version v3 --holdout` evaluates the held-out season (meant to be run once).
+The v2 model is kept runnable: `scripts/train.py --version v2`, `scripts/evaluate.py`.
 
 ## Layout
-
 ```
 src/nbapred/
-  data/       fetch.py (cached nba_api calls), build.py (games / team_games / player_games tables)
-  features/   elo.py, players.py, form.py, schedule.py, build.py (the per-game matrix)
-  models/     predictors.py (models + explanations), evaluate.py (walk-forward harness)
-  predict.py  TeamState: serving-time features for any matchup
-  live.py     schedule, rosters, prediction log, app exports
-app/          Streamlit (streamlit_app.py + views/)
-data/app/     the small files the app reads (committed); data/raw + data/processed are rebuildable caches
-legacy/       v1 notebooks and scraped CSVs
+  data/        fetch.py (cached nba_api), build.py (tables), injuries.py (official report + ESPN fallback)
+  features/    stints.py, impact.py (RAPM + prior), availability.py, projection.py, style.py, elo.py,
+               matrix_v3.py (shared assemble), matrix_v2.py + gamescore.py (v2), form.py, schedule.py
+  models/      v3.py, availability.py (P(plays)), v2.py, baselines.py, evaluate.py
+  serving_v3.py, live.py
+app/           Streamlit (streamlit_app.py + views/)
+analysis/      experiments and results write-ups
+docs/          design docs
+legacy/        v1 notebooks and CSVs
 ```
 
 ## Deploying
+stats.nba.com blocks most cloud IPs, so the app never calls it.
+1. Run `scripts/daily_update.py` locally.
+2. Commit `data/app/`.
+3. Push.
 
-stats.nba.com often blocks cloud IPs, so the app never calls it. Run `scripts/daily_update.py` locally,
-commit `data/app/` and push. Streamlit Community Cloud serves the app from `app/streamlit_app.py` using
-`requirements.txt`.
+Streamlit Community Cloud serves `app/streamlit_app.py`, installing the dependencies from `requirements.txt`.
 
 ## Limitations
-
-- The model doesn't read injury reports. Live predictions assume full rosters; use the Matchup explorer
-  to mark players out. The backtest used actual lineups, so live accuracy will be somewhat lower.
-- Early in a season, Elo and form still describe last season's team. Roster strength updates straight away.
-- It hasn't been compared against betting lines yet (see ROADMAP.md).
+- Late scratches after the last pre-game injury report aren't known.
+- Contract expiries aren't in the roster-moves feed, so unsigned free agents aren't known until someone signs
+  them. A learned "new season" availability feature covers this.
+- No bookmaker line data yet: closing lines (about 68–70%) are the real bar.

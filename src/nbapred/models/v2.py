@@ -1,4 +1,6 @@
-"""Model definitions.
+"""v2 model (legacy): ridge margin/total on the Elo + Game Score + form + schedule matrix.
+
+Kept runnable for comparison with v3. Baselines shared by all versions live in models/baselines.py.
 
 Every model predicts the home margin and the game total. Win probability is derived from the margin,
 p_home = Phi(margin / sigma), so the scoreline and the winner can never disagree (the v1 bug).
@@ -10,11 +12,10 @@ import lightgbm as lgb
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
-from sklearn.linear_model import LogisticRegression, Ridge
+from sklearn.linear_model import Ridge
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-from nbapred.features.elo import Elo
 from nbapred.features.form import ALLOWED, OWN
 
 FORM = [f"{s}_{sp}" for s in OWN + [f"opp_{c}" for c in ALLOWED] for sp in ("fast", "slow")]
@@ -96,37 +97,6 @@ def margin_total(features, margin="ridge", total="ridge"):
     return fit_predict
 
 
-# ---- baselines -------------------------------------------------------------------------------
-
-def home_baseline(train, test):
-    return pd.DataFrame({"p_home": train["home_win"].mean(), "pred_margin": train["margin"].mean(),
-                         "pred_total": np.nan}, index=test.index)
-
-
-def elo_baseline(train, test):
-    # FiveThirtyEight rule of thumb: 28 Elo points ~ 1 point of spread (home_adv included)
-    home_adv = np.where(test["neutral"] == 1, 0, Elo().home_adv)
-    return pd.DataFrame({"p_home": test["elo_prob"], "pred_margin": (test["diff_elo"] + home_adv) / 28,
-                         "pred_total": np.nan}, index=test.index)
-
-
-def logistic(features, C=0.05):
-    def fit_predict(train, test):
-        d = train.dropna(subset=features)
-        clf = make_pipeline(StandardScaler(), LogisticRegression(C=C, max_iter=3000)).fit(d[features], d["home_win"])
-        return pd.DataFrame({"p_home": clf.predict_proba(test[features].fillna(0))[:, 1],
-                             "pred_margin": np.nan, "pred_total": np.nan}, index=test.index)
-    return fit_predict
-
-
-def ensemble(*fps):
-    """Average p_home / margins / totals of several fit_predicts."""
-    def fit_predict(train, test):
-        parts = [fp(train, test) for fp in fps]
-        return sum(parts) / len(parts)
-    return fit_predict
-
-
 # ---- explanations ----------------------------------------------------------------------------
 
 FEATURE_GROUPS = {
@@ -145,3 +115,15 @@ def grouped_explanation(model: MarginTotalModel, row: pd.Series) -> pd.Series:
     for group, cols in FEATURE_GROUPS.items():
         out[group] = c[[f for f in cols if f in c.index]].sum()
     return pd.Series(out)
+
+
+def no_availability(df: pd.DataFrame) -> pd.DataFrame:
+    """v2's features as it would see them live without injury data: everyone on the roster counts as available.
+    (v2's backtest used who actually played, which isn't known before tip-off.)"""
+    df = df.copy()
+    for side in ("h", "a"):
+        df[f"{side}_available_strength"] = df[f"{side}_full_strength"]
+        df[f"{side}_missing_strength"] = 0.0
+    df["diff_available_strength"] = df.h_available_strength - df.a_available_strength
+    df["diff_missing_strength"] = 0.0
+    return df

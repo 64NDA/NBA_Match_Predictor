@@ -7,77 +7,72 @@ from sklearn.metrics import log_loss
 from common import HOME, table
 
 st.title("Track record")
+GRAY = "rgba(128,128,128,0.7)"
+ll = lambda y, p: log_loss(y, np.clip(p, 1e-4, 1 - 1e-4), labels=[0, 1])
+acc = lambda y, p: ((p > 0.5) == y.astype(bool)).mean()
 
 # ---- live log ---------------------------------------------------------------------------------
 log = table("prediction_log")
 done = log[log["home_win"].notna()] if len(log) else log
 st.subheader("This season (live)")
 if len(done):
-    acc = ((done.p_home > 0.5) == done.home_win.astype(bool)).mean()
-    elo_acc = ((done.elo_prob > 0.5) == done.home_win.astype(bool)).mean()
-    a, b, c = st.columns(3)
+    y = done["home_win"]
+    a, b, c, d = st.columns(4)
     a.metric("Games", len(done))
-    b.metric("Model accuracy", f"{acc:.1%}", delta=f"{(acc - elo_acc) * 100:+.1f} pts vs Elo")
-    c.metric("Log-loss", f"{log_loss(done.home_win, done.p_home.clip(1e-4, 1 - 1e-4), labels=[0, 1]):.3f}")
+    b.metric("v3 accuracy", f"{acc(y, done.p_home):.1%}", delta=f"{(acc(y, done.p_home) - acc(y, done.elo_prob)) * 100:+.1f} pts vs Elo")
+    if "p_home_v2" in done and done["p_home_v2"].notna().any():
+        c.metric("v2 accuracy", f"{acc(y, done.p_home_v2):.1%}")
+    d.metric("v3 log-loss", f"{ll(y, done.p_home):.3f}")
     st.dataframe(done.sort_values("date", ascending=False)[
-        ["date", "away_team", "home_team", "p_home", "pred_away_pts", "pred_home_pts", "away_pts", "home_pts"]],
-        use_container_width=True, hide_index=True)
+        ["date", "away_team", "home_team", "p_home", "p_home_v2", "elo_prob", "pred_away_pts", "pred_home_pts",
+         "away_pts", "home_pts"]], use_container_width=True, hide_index=True)
 else:
-    st.info("No completed games logged yet. Predictions are logged *before* tip-off by the daily update, "
-            "then scored here once results come in.")
+    st.info("No completed games logged yet. Predictions are logged *before* tip-off by the daily update (using "
+            "the injury report available then) and scored here once the results are in.")
 
 # ---- backtest ---------------------------------------------------------------------------------
-bt = table("backtest")
+v3, v2 = table("backtest_v3"), table("backtest")
+bt = v3.merge(v2[["game_id", "p_home"]].rename(columns={"p_home": "p_v2"}), on="game_id", how="left")
 st.subheader("Backtest (out-of-sample)")
-st.caption("Every game below was predicted by a model trained only on earlier seasons. 2021-25 were used for "
-           "model selection; **2025-26 was held out and evaluated once**.")
+st.caption("Every game was predicted by a model trained only on earlier seasons, using the injury report as it stood "
+           "an hour before tip-off. 2021-25 were used to choose the model; **2025-26 was held out and evaluated once**.")
 
 
 def summarise(d):
-    y = d.home_win
-    return pd.Series({
-        "Games": len(d),
-        "Model acc": ((d.p_home > .5) == y).mean(), "Elo acc": ((d.elo_prob > .5) == y).mean(),
-        "Home-team acc": y.mean(),
-        "Model log-loss": log_loss(y, d.p_home.clip(1e-4, 1 - 1e-4), labels=[0, 1]),
-        "Elo log-loss": log_loss(y, d.elo_prob.clip(1e-4, 1 - 1e-4), labels=[0, 1]),
-        "Margin MAE": (d.pred_margin - d.margin).abs().mean(),
-    })
+    y = d["home_win"]
+    return pd.Series({"Games": len(d), "v3 acc": acc(y, d.p_home), "v2 acc": acc(y, d.p_v2), "Elo acc": acc(y, d.elo_prob),
+                      "Home-team acc": y.mean(), "v3 log-loss": ll(y, d.p_home), "v2 log-loss": ll(y, d.p_v2),
+                      "v3 margin MAE": (d.pred_margin - d.margin).abs().mean()})
 
 
-per = bt.groupby("season").apply(summarise)
+per = bt.dropna(subset=["p_v2"]).groupby("season").apply(summarise)
 per.index = [f"{s}-{str(s + 1)[-2:]}" + (" (holdout)" if s == bt.season.max() else "") for s in per.index]
 st.dataframe(per, use_container_width=True, column_config={
     "Games": st.column_config.NumberColumn(format="%d"),
-    **{c: st.column_config.NumberColumn(format="percent") for c in ["Model acc", "Elo acc", "Home-team acc"]},
-    **{c: st.column_config.NumberColumn(format="%.3f") for c in ["Model log-loss", "Elo log-loss"]},
-    "Margin MAE": st.column_config.NumberColumn(format="%.1f pts")})
+    **{c: st.column_config.NumberColumn(format="percent") for c in ["v3 acc", "v2 acc", "Elo acc", "Home-team acc"]},
+    **{c: st.column_config.NumberColumn(format="%.3f") for c in ["v3 log-loss", "v2 log-loss"]},
+    "v3 margin MAE": st.column_config.NumberColumn(format="%.1f pts")})
 
 left, right = st.columns(2)
-
-# calibration: predicted vs actual home win rate, 10 bins
 with left:
     st.markdown("##### Calibration")
-    bins = pd.cut(bt.p_home, np.linspace(0, 1, 11))
-    cal = bt.groupby(bins, observed=True).agg(pred=("p_home", "mean"), actual=("home_win", "mean"), n=("home_win", "size"))
     fig = go.Figure()
-    fig.add_scatter(x=[0, 1], y=[0, 1], mode="lines", line=dict(color="rgba(128,128,128,0.5)", dash="dot", width=1),
-                    name="perfect", hoverinfo="skip")
-    fig.add_scatter(x=cal.pred, y=cal.actual, mode="lines+markers", line=dict(color=HOME, width=2),
-                    marker=dict(size=9, line=dict(width=2, color="white")), name="model",
-                    customdata=cal.n, hovertemplate="predicted %{x:.0%} → won %{y:.0%} (%{customdata} games)<extra></extra>")
-    fig.update_layout(height=340, margin=dict(l=0, r=0, t=10, b=0), showlegend=False,
-                      xaxis=dict(title="predicted home win probability", tickformat=".0%", range=[0, 1],
-                                 gridcolor="rgba(128,128,128,0.15)"),
-                      yaxis=dict(title="actual home win rate", tickformat=".0%", range=[0, 1],
-                                 gridcolor="rgba(128,128,128,0.15)"),
+    fig.add_scatter(x=[0, 1], y=[0, 1], mode="lines", line=dict(color=GRAY, dash="dot", width=1), name="perfect", hoverinfo="skip")
+    bins = np.linspace(0, 1, 11)
+    for col, name, color, width in (("p_v2", "v2", GRAY, 1.5), ("p_home", "v3", HOME, 2.5)):
+        cal = bt.groupby(pd.cut(bt[col], bins), observed=True).agg(pred=(col, "mean"), actual=("home_win", "mean"), n=("home_win", "size"))
+        fig.add_scatter(x=cal.pred, y=cal.actual, mode="lines+markers", line=dict(color=color, width=width), name=name,
+                        marker=dict(size=8 if name == "v3" else 6, line=dict(width=2, color="white")), customdata=cal.n,
+                        hovertemplate=name + ": predicted %{x:.0%} → won %{y:.0%} (%{customdata} games)<extra></extra>")
+    fig.update_layout(height=340, margin=dict(l=0, r=0, t=10, b=0), legend=dict(orientation="h", y=1.1),
+                      xaxis=dict(title="predicted home win probability", tickformat=".0%", range=[0, 1], gridcolor="rgba(128,128,128,0.15)"),
+                      yaxis=dict(title="actual home win rate", tickformat=".0%", range=[0, 1], gridcolor="rgba(128,128,128,0.15)"),
                       paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-    st.caption("Points on the dotted line mean '70%' really wins 70% of the time.")
+    st.caption("On the dotted line, '70%' really wins 70% of the time.")
 
-# accuracy by confidence
 with right:
-    st.markdown("##### Accuracy by confidence")
+    st.markdown("##### Accuracy by confidence (v3)")
     conf = np.maximum(bt.p_home, 1 - bt.p_home)
     buckets = pd.cut(conf, [0.5, 0.6, 0.7, 0.8, 1.0], labels=["50–60%", "60–70%", "70–80%", "80%+"], include_lowest=True)
     correct = (bt.p_home > .5) == bt.home_win

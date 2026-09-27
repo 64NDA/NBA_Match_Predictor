@@ -12,7 +12,7 @@ from nbapred.config import PROCESSED
 from nbapred.data.build import load
 from nbapred.features.elo import Elo
 from nbapred.features.form import team_form
-from nbapred.features.players import player_features
+from nbapred.features.gamescore import player_features
 from nbapred.features.schedule import schedule_features
 
 TEAM_FEATURES_SKIP = {"game_id", "team_id", "games_played"}
@@ -68,9 +68,9 @@ def build_matrix(games: pd.DataFrame, team_games: pd.DataFrame, player_games: pd
 
 def build_and_save() -> pd.DataFrame:
     m = build_matrix(load("games"), load("team_games"), load("player_games"))
-    m.to_parquet(PROCESSED / "matrix.parquet", index=False)
+    m.to_parquet(PROCESSED / "matrix_v2.parquet", index=False)
     return m
 
 
 def load_matrix() -> pd.DataFrame:
-    return pd.read_parquet(PROCESSED / "matrix.parquet")
+    return pd.read_parquet(PROCESSED / "matrix_v2.parquet")

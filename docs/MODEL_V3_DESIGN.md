@@ -1,6 +1,11 @@
 # Model v3 — design
 
-Status: **proposed, awaiting sign-off** (2026-09-26). v2 is committed on branch `v2` (c669421).
+Status: **implemented** (2026-09-27). Results and the final configuration are in
+[analysis/V3_RESULTS.md](../analysis/V3_RESULTS.md). The main deviations from this design:
+- **Lineups come from play-by-play substitutions** (validated 99.7–100% against the official rotations), because
+  GameRotation throttles heavily.
+- **Matchup & style, recent form, series / head-to-head, tree refinements, the stacks and the Elo season-start
+  change** were all tested and did not make the final model. They were within noise, or worse.
 
 ## 1. Philosophy: an aggregate base, plus refinements
 

@@ -9,8 +9,8 @@ import argparse
 
 import pandas as pd
 
-from nbapred.features.build import build_and_save, load_matrix
-from nbapred.models import predictors as P
+from nbapred.features.matrix_v2 import build_and_save, load_matrix
+from nbapred.models import baselines as B, v2 as P
 from nbapred.models.evaluate import calibration, compare, report, walk_forward
 
 pd.set_option("display.width", 160, "display.precision", 3)
@@ -23,8 +23,8 @@ m = load_matrix() if args.cached else build_and_save()
 fs = P.FEATURE_SETS
 print("\n== Baselines & feature-set ablation (ridge margin model) ==")
 print(compare(m, {
-    "home team": P.home_baseline,
-    "elo": P.elo_baseline,
+    "home team": B.home_baseline,
+    "elo": B.elo_baseline,
     **{f"ridge[{k}]": P.margin_total(v) for k, v in fs.items()},
 }))
 
@@ -33,8 +33,8 @@ best = P.margin_total(fs["all"])
 print(compare(m, {
     "ridge": best,
     "lgbm": P.margin_total(fs["all"], "lgbm", "lgbm"),
-    "logistic": P.logistic(fs["all"]),
-    "ridge+lgbm": P.ensemble(best, P.margin_total(fs["all"], "lgbm", "lgbm")),
+    "logistic": B.logistic(fs["all"]),
+    "ridge+lgbm": B.ensemble(best, P.margin_total(fs["all"], "lgbm", "lgbm")),
 }))
 
 preds = walk_forward(m, best)

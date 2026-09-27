@@ -14,17 +14,20 @@ APP_DATA = ROOT / "data" / "app"
 
 # Validated categorical slots 1-2 (see dataviz palette): home = blue, away = orange, everywhere.
 HOME, AWAY = "#2a78d6", "#eb6834"
-GROUP_ORDER = ["Home court", "Team strength (Elo)", "Player availability", "Recent form", "Rest & travel", "Playoff game"]
+GROUP_ORDER = ["Baseline", "Home court", "Team strength (Elo)", "Player ratings", "Injuries", "Recent form",
+               "Matchup & style", "Matchup (trees)", "Series / head-to-head", "Rest & travel", "Playoff game",
+               "Blend (gradient boosting)", "Blend (neural net)"]
+STATUS_OPTIONS = ["Available", "Probable", "Questionable", "Doubtful", "Out"]
 
 
 @st.cache_resource
 def model():
-    return joblib.load(APP_DATA / "model.joblib")
+    return joblib.load(APP_DATA / "model_v3.joblib")
 
 
 @st.cache_resource
 def state():
-    return joblib.load(APP_DATA / "state.joblib")
+    return joblib.load(APP_DATA / "state_v3.joblib")
 
 
 @st.cache_data
@@ -34,12 +37,9 @@ def table(name: str) -> pd.DataFrame:
 
 
 @st.cache_data
-def meta() -> dict:
-    out = {}
-    for name in ("model_meta", "holdout_metrics"):
-        p = ROOT / "models" / f"{name}.json"
-        out[name] = json.loads(p.read_text()) if p.exists() else {}
-    return out
+def app_json(name: str) -> dict:
+    p = APP_DATA / f"{name}.json"
+    return json.loads(p.read_text()) if p.exists() else {}
 
 
 def teams() -> pd.DataFrame:
@@ -63,7 +63,7 @@ def prob_bar(away: str, home: str, p_home: float):
         unsafe_allow_html=True)
 
 
-def why_chart(why: pd.Series, home: str, away: str, height: int = 260):
+def why_chart(why: pd.Series, home: str, away: str, height: int = 280):
     """Diverging bars: each factor's contribution to the predicted home margin, in points."""
     why = why.reindex([g for g in GROUP_ORDER if g in why.index])
     why = why[why.abs() >= 0.05]
@@ -81,7 +81,18 @@ def why_chart(why: pd.Series, home: str, away: str, height: int = 260):
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 
-def prediction_card(r: pd.Series, key: str):
+def injury_badges(team: str, injuries) -> str:
+    """Compact text list: 'LAL: Dončić 5% (Out) · Reaves 55% (Questionable)'."""
+    items = list(injuries) if injuries is not None else []
+    if not items:
+        return ""
+    surname = lambda n: [w for w in n.split() if w.rstrip(".") not in ("Jr", "Sr", "II", "III", "IV")][-1]
+    parts = [f"{surname(i['player'])} {i['p_play']:.0%}"
+             + (f" ({i['status']})" if i["status"] not in ("none", "no_report") else "") for i in items[:5]]
+    return f"**{team}**: " + " · ".join(parts)
+
+
+def prediction_card(r: pd.Series):
     with st.container(border=True):
         top = st.columns([3, 2])
         top[0].markdown(f"**{team_label(r.away_team)}** @ **{team_label(r.home_team)}**"
@@ -92,9 +103,13 @@ def prediction_card(r: pd.Series, key: str):
                         f"<div style='text-align:right;font-size:0.75rem;opacity:0.7'>predicted score (away – home)</div>",
                         unsafe_allow_html=True)
         prob_bar(r.away_team, r.home_team, r.p_home)
+        inj = [b for b in (injury_badges(r.away_team, r.get("away_injuries")),
+                           injury_badges(r.home_team, r.get("home_injuries"))) if b]
+        if inj:
+            st.caption("Chance of playing — " + "  \n".join(inj))
         with st.expander("Why?"):
-            why = pd.Series({c[4:]: r[c] for c in r.index if c.startswith("why_")})
+            why = pd.Series({c[4:]: r[c] for c in r.index if c.startswith("why_") and pd.notna(r[c])})
             why_chart(why, r.home_team, r.away_team)
-            st.caption(f"Elo alone says {r.home_team} {r.elo_prob:.0%}. "
-                       "Contributions are points of predicted home margin; they sum to the predicted margin "
-                       f"({r.pred_margin:+.1f}).")
+            extra = f" · v2 model: {r.home_team} {r.p_home_v2:.0%}" if pd.notna(r.get("p_home_v2")) else ""
+            st.caption(f"Elo alone: {r.home_team} {r.elo_prob:.0%}{extra}. Bars are points of predicted home margin "
+                       f"and add up to the prediction ({r.pred_margin:+.1f}).")

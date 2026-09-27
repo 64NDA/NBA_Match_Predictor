@@ -17,6 +17,9 @@ class Elo:
     carryover: float = 0.75  # fraction of rating kept between seasons (rest regresses to MEAN)
     ratings: dict = field(default_factory=dict)
     season: int | None = None
+    # v3: {(season, team_id): Elo target} -- between seasons, regress toward the roster-based projection
+    # instead of the league mean. Empty = v2 behaviour.
+    season_targets: dict = field(default_factory=dict)
 
     def win_prob(self, home_rating: float, away_rating: float, neutral: bool = False) -> float:
         diff = home_rating - away_rating + (0 if neutral else self.home_adv)
@@ -24,7 +27,8 @@ class Elo:
 
     def _new_season(self, season: int):
         if self.season is not None and season != self.season:
-            self.ratings = {t: MEAN + self.carryover * (r - MEAN) for t, r in self.ratings.items()}
+            self.ratings = {t: self.season_targets.get((season, t), MEAN) + self.carryover
+                            * (r - self.season_targets.get((season, t), MEAN)) for t, r in self.ratings.items()}
         self.season = season
 
     def update(self, home: int, away: int, margin: int, season: int, neutral: bool = False) -> tuple[float, float, float]:
