@@ -40,8 +40,8 @@ therefore never disagree.
   was worse.
 
 **Testing.** Each season is predicted by a model that has only seen earlier seasons, using the injury report as it
-stood **an hour before tip-off**. Model choices were made on 2021-22 to 2024-25. **2025-26 was held out and
-evaluated once.** Automated tests check that no feature uses information from after tip-off, and that this app
+stood **an hour before tip-off**. Model choices were made on 2021-22 to 2024-25. **2025-26 was held out**:
+evaluated once, then re-evaluated after four bug fixes found afterwards (the table below is that second look). Automated tests check that no feature uses information from after tip-off, and that this app
 computes exactly the same features as training.
 
 | 2025-26 holdout (second look, after bug fixes: see the results write-up) | Accuracy | Log-loss |
