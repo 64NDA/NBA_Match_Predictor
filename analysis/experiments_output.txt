@@ -1,0 +1,58 @@
+BASELINE (production): {'log_loss': np.float64(0.6106), 'acc': np.float64(0.6662), 'margin_mae': np.float64(10.66)} 
+
+== 1. Home-court advantage ==
+                                  log_loss     acc  margin_mae  d_logloss      se  d_acc_pp verdict
+same config via harness             0.6106  0.6662     10.6600     0.0000  0.0000    0.0000   ~same
+drop bubble games                   0.6106  0.6654     10.6595     0.0000  0.0001   -0.0757   ~same
+drop bubble + 2020-21 (few fans)    0.6109  0.6637     10.6560     0.0003  0.0005   -0.2462   ~same
+intercept = last 2 seasons          0.6111  0.6658     10.6669     0.0005  0.0004   -0.0379   ~same
+intercept = last 3 seasons          0.6108  0.6673     10.6648     0.0002  0.0003    0.1136   ~same
+no absolute away travel             0.6103  0.6682     10.6573    -0.0003  0.0002    0.2083   ~same
+                                   log_loss     acc  margin_mae  d_logloss      se  d_acc_pp verdict
++ team-specific home edge (hl 60)    0.6102  0.6694     10.6551    -0.0003  0.0002    0.3219   ~same
+
+== 2. Margin -> probability ==
+                            log_loss     acc  margin_mae  d_logloss      se  d_acc_pp verdict
+sigma by log-loss             0.6105  0.6662       10.66    -0.0001  0.0006    0.0000   ~same
+platt (logistic on margin)    0.6117  0.6656       10.66     0.0012  0.0009   -0.0568   ~same
+
+== 3. Regularisation / training window (with sigma by log-loss) ==
+                            log_loss     acc  margin_mae  d_logloss      se  d_acc_pp verdict
+alpha 1                       0.6106  0.6667     10.6601     0.0000  0.0006    0.0568   ~same
+alpha 30                      0.6105  0.6654     10.6604    -0.0001  0.0006   -0.0757   ~same
+alpha 100                     0.6103  0.6664     10.6601    -0.0002  0.0006    0.0189   ~same
+alpha 300                     0.6102  0.6669     10.6589    -0.0004  0.0006    0.0757   ~same
+train from 2018               0.6113  0.6669     10.6876     0.0007  0.0007    0.0757   ~same
+recency weight 0.85/season    0.6108  0.6652     10.6665     0.0002  0.0006   -0.0947   ~same
+
+== 4. Player-availability settings ==
+                        log_loss     acc  margin_mae  d_logloss      se  d_acc_pp verdict
+top8 hl20                 0.6106  0.6662     10.6600     0.0000  0.0000    0.0000   ~same
+top8 hl20 + star top3     0.6098  0.6673     10.6492    -0.0008  0.0004    0.1136  BETTER
+top6 hl20                 0.6099  0.6681     10.6568    -0.0007  0.0005    0.1894   ~same
+top6 hl20 + star top3     0.6098  0.6671     10.6544    -0.0008  0.0005    0.0947   ~same
+top10 hl20                0.6130  0.6601     10.6834     0.0024  0.0005   -0.6059   worse
+top10 hl20 + star top3    0.6107  0.6628     10.6542     0.0002  0.0006   -0.3408   ~same
+top5 hl20                 0.6101  0.6671     10.6607    -0.0005  0.0007    0.0947   ~same
+top5 hl20 + star top3     0.6102  0.6671     10.6615    -0.0004  0.0007    0.0947   ~same
+top8 hl10                 0.6116  0.6629     10.6767     0.0010  0.0005   -0.3219   worse
+top8 hl10 + star top3     0.6104  0.6667     10.6578    -0.0002  0.0006    0.0568   ~same
+top8 hl30                 0.6105  0.6654     10.6621    -0.0000  0.0003   -0.0757   ~same
+top8 hl30 + star top3     0.6099  0.6654     10.6548    -0.0007  0.0004   -0.0757   ~same
+top8 hl40                 0.6108  0.6660     10.6705     0.0002  0.0005   -0.0189   ~same
+top8 hl40 + star top3     0.6103  0.6650     10.6651    -0.0003  0.0005   -0.1136   ~same
+                                     log_loss     acc  margin_mae  d_logloss      se  d_acc_pp verdict
+sigma pooled 3 seasons                 0.6104  0.6662     10.6600    -0.0002  0.0004    0.0000   ~same
+CANDIDATE: star top3 + sigma pooled    0.6095  0.6673     10.6492    -0.0011  0.0006    0.1136   ~same
+
+== 5. Model family (with sigma by log-loss where applicable) ==
+                      log_loss     acc  margin_mae  d_logloss      se  d_acc_pp verdict
+logistic (direct)       0.6108  0.6650         NaN     0.0002  0.0009   -0.1136   ~same
+ridge + logistic avg    0.6102  0.6658         NaN    -0.0004  0.0007   -0.0379   ~same
+lgbm margin             0.6146  0.6635     10.7139     0.0041  0.0012   -0.2651   worse
+
+== 6. Live conditions: no injury report at prediction time ==
+                                                 log_loss     acc  margin_mae  d_logloss      se  d_acc_pp verdict
+train real lineups, predict blind (= app today)    0.6272  0.6506     10.9420     0.0166  0.0023   -1.5527   worse
+train blind, predict blind                         0.6238  0.6540     10.8728     0.0133  0.0021   -1.2119   worse
+no player features                                 0.6244  0.6497     10.8848     0.0138  0.0022   -1.6474   worse

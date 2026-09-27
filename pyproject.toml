@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nbapred"
+version = "2.0.0"
+description = "NBA game outcome and score prediction"
+requires-python = ">=3.11"
+dependencies = [
+    "nba_api>=1.11",
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "pyarrow>=15",
+    "scikit-learn>=1.5",
+    "lightgbm>=4.3",
+    "scipy>=1.11",
+    "joblib>=1.3",
+    "streamlit>=1.40",
+    "plotly>=5.20",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "shap>=0.46"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

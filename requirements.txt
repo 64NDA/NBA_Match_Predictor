@@ -1,0 +1,13 @@
+# Runtime deps for the Streamlit app (Streamlit Community Cloud installs this file).
+# Exact pins: data/app/*.joblib are pickles and must load with the versions that wrote them.
+# For development: pip install -e ".[dev]"
+streamlit==1.64.0
+pandas==3.0.6
+numpy==2.5.3
+pyarrow==25.0.1
+scikit-learn==1.9.1
+scipy==1.18.1
+joblib==1.6.0
+plotly==7.1.0
+nba_api==1.11.4
+lightgbm==4.7.0
