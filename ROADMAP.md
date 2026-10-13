@@ -27,7 +27,6 @@ a second look after bug fixes, the first look was 67.3% / 0.594).
 ## Original plan
 
 Stack: **nba_api** (data) · **pandas / scikit-learn / LightGBM** (model) · **Streamlit** (app).
-Working mode (updated): Claude built phases 0–5; Albert reviews.
 
 ## Where v1 stands (reproduce with `analysis/audit_v1.py`)
 
@@ -151,7 +150,7 @@ Architecture: `scripts/daily_update.py` fetches yesterday's results and today's 
 ---
 
 ## Review checkpoints
-Ping Claude for a review at the end of each phase, especially:
+Review at the end of each phase, especially:
 - **after Phase 1:** data correctness (duplicates, home/away mapping, season edges)
 - **after Phase 3:** leakage audit
 - **before the holdout run in Phase 4:** make sure nothing was tuned on it
