@@ -1,6 +1,6 @@
 # NBA Match Predictor — Roadmap
 
-## Status (2026-09-27): v3 shipped on branch `v2`
+## Status (2026-09-27): v3 shipped on `main`
 v3 is built and evaluated. Results are in `analysis/V3_RESULTS.md`, and the design is in
 `docs/MODEL_V3_DESIGN.md`:
 - player ratings from about 423k play-by-play stints
@@ -9,7 +9,8 @@ v3 is built and evaluated. Results are in `analysis/V3_RESULTS.md`, and the desi
 - the ridge combiner
 - the Streamlit app, with injury-aware predictions and a what-if explorer
 
-Live accuracy is 66.9% over the 2021-25 walk-forward, and 67.3% on the 2025-26 holdout (log-loss 0.594).
+Live accuracy is 67.1% over the 2021-25 walk-forward (log-loss 0.606), and 69.0% on the 2025-26 holdout (log-loss 0.591;
+a second look after bug fixes, the first look was 67.3% / 0.594).
 
 ### Next up
 - [ ] **Deploy:** connect Streamlit Community Cloud to the repo (main file `app/streamlit_app.py`).

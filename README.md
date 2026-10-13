@@ -86,7 +86,7 @@ downloads.
 
 **Windows (PowerShell):**
 ```powershell
-git clone -b v2 https://github.com/64NDA/NBA_Match_Predictor.git
+git clone https://github.com/64NDA/NBA_Match_Predictor.git
 cd NBA_Match_Predictor
 python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
@@ -95,7 +95,7 @@ python -m venv .venv
 
 **macOS / Linux:**
 ```bash
-git clone -b v2 https://github.com/64NDA/NBA_Match_Predictor.git
+git clone https://github.com/64NDA/NBA_Match_Predictor.git
 cd NBA_Match_Predictor
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
